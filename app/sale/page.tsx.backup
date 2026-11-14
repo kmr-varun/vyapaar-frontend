@@ -1,0 +1,924 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CalendarIcon, Plus, Trash2, X, Download, Printer, Eye, FileText } from "lucide-react";
+import { format } from "date-fns";
+import jsPDF from "jspdf";
+import { mockParties, mockItems, mockTransports, type Item } from "@/lib/data-store";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface LineItem {
+  id: string;
+  itemId: string;
+  item: string;
+  flavour: string;
+  exp: string;
+  mfgDate: string;
+  mrp: string;
+  qty: string;
+  unit: string;
+  pricePerUnit: string;
+  amount: number;
+}
+
+export default function SalePage() {
+  const [isCreditSale, setIsCreditSale] = useState(true);
+  const [invoiceDate, setInvoiceDate] = useState<Date | undefined>(undefined);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [transportId, setTransportId] = useState("");
+  const [parties, setParties] = useState(mockParties);
+  const [items, setItems] = useState(mockItems);
+  const [savedSales, setSavedSales] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("add");
+
+  useEffect(() => {
+    setInvoiceDate(new Date());
+
+    // Load saved parties and items from localStorage
+    const savedParties = localStorage.getItem('parties');
+    if (savedParties) {
+      setParties(JSON.parse(savedParties));
+    }
+
+    const savedItems = localStorage.getItem('items');
+    if (savedItems) {
+      setItems(JSON.parse(savedItems));
+    }
+
+    // Load saved sales
+    const sales = localStorage.getItem('sales');
+    if (sales) {
+      setSavedSales(JSON.parse(sales));
+    }
+  }, []);
+
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    {
+      id: "1",
+      itemId: "",
+      item: "",
+      flavour: "",
+      exp: "",
+      mfgDate: "",
+      mrp: "",
+      qty: "",
+      unit: "NONE",
+      pricePerUnit: "",
+      amount: 0,
+    },
+    {
+      id: "2",
+      itemId: "",
+      item: "",
+      flavour: "",
+      exp: "",
+      mfgDate: "",
+      mrp: "",
+      qty: "",
+      unit: "NONE",
+      pricePerUnit: "",
+      amount: 0,
+    },
+  ]);
+  const [shipping, setShipping] = useState("0");
+  const [roundOff, setRoundOff] = useState(true);
+  const [description, setDescription] = useState("");
+  const [showDescription, setShowDescription] = useState(false);
+  const [images, setImages] = useState<Array<{ name: string; url: string }>>([]);
+  const [documents, setDocuments] = useState<string[]>([]);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string>("");
+
+  const handleCustomerChange = (customerId: string | null) => {
+    if (!customerId) return;
+    setSelectedCustomerId(customerId);
+    const customer = parties.find((p) => p.id === customerId);
+    if (customer) {
+      setCustomerPhone(customer.phone);
+    }
+  };
+
+  const handleItemChange = (index: number, itemId: string | null) => {
+    if (!itemId) return;
+    const selectedItem = items.find((i) => i.id === itemId);
+    if (selectedItem) {
+      const newItems = [...lineItems];
+      newItems[index].itemId = itemId;
+      newItems[index].item = selectedItem.name;
+      newItems[index].mrp = selectedItem.mrp.toString();
+      newItems[index].pricePerUnit = selectedItem.salePrice.toString();
+      newItems[index].unit = selectedItem.unit;
+      // Calculate amount if qty exists
+      const qty = parseFloat(newItems[index].qty) || 0;
+      newItems[index].amount = qty * selectedItem.salePrice;
+      setLineItems(newItems);
+    }
+  };
+
+  const addRow = () => {
+    setLineItems([
+      ...lineItems,
+      {
+        id: Date.now().toString(),
+        itemId: "",
+        item: "",
+        flavour: "",
+        exp: "",
+        mfgDate: "",
+        mrp: "",
+        qty: "",
+        unit: "NONE",
+        pricePerUnit: "",
+        amount: 0,
+      },
+    ]);
+  };
+
+  const removeRow = (id: string) => {
+    setLineItems(lineItems.filter((item) => item.id !== id));
+  };
+
+  const calculateTotal = () => {
+    const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
+    const shippingCost = parseFloat(shipping) || 0;
+    const total = subtotal + shippingCost;
+    return roundOff ? Math.round(total) : total;
+  };
+
+  const handleSave = () => {
+    const saleData = {
+      customer: parties.find((p) => p.id === selectedCustomerId),
+      invoiceDate,
+      isCreditSale,
+      lineItems: lineItems.filter(item => item.item),
+      transport: mockTransports.find((t) => t.id === transportId),
+      shipping,
+      description,
+      images,
+      documents,
+      total: calculateTotal(),
+    };
+
+    // Save to localStorage for demo
+    const existingSales = JSON.parse(localStorage.getItem('sales') || '[]');
+    const newSale = { ...saleData, id: Date.now(), date: new Date().toISOString() };
+    existingSales.push(newSale);
+    localStorage.setItem('sales', JSON.stringify(existingSales));
+
+    // Update state and switch to view tab
+    setSavedSales(existingSales);
+    setActiveTab("view");
+
+    // Reset form
+    resetForm();
+  };
+
+  const resetForm = () => {
+    // Clean up image blob URLs
+    images.forEach(img => URL.revokeObjectURL(img.url));
+
+    setSelectedCustomerId("");
+    setCustomerPhone("");
+    setInvoiceDate(new Date());
+    setIsCreditSale(true);
+    setTransportId("");
+    setShipping("0");
+    setDescription("");
+    setShowDescription(false);
+    setImages([]);
+    setDocuments([]);
+    setLineItems([
+      {
+        id: "1",
+        itemId: "",
+        item: "",
+        flavour: "",
+        exp: "",
+        mfgDate: "",
+        mrp: "",
+        qty: "",
+        unit: "NONE",
+        pricePerUnit: "",
+        amount: 0,
+      },
+      {
+        id: "2",
+        itemId: "",
+        item: "",
+        flavour: "",
+        exp: "",
+        mfgDate: "",
+        mrp: "",
+        qty: "",
+        unit: "NONE",
+        pricePerUnit: "",
+        amount: 0,
+      },
+    ]);
+  };
+
+  const generatePDF = () => {
+    if (!invoiceDate) return;
+
+    const doc = new jsPDF();
+    const customer = parties.find((p) => p.id === selectedCustomerId);
+
+    doc.setFontSize(20);
+    doc.text("SALE INVOICE", 105, 20, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.text(`Invoice Date: ${format(invoiceDate, "dd/MM/yyyy")}`, 20, 40);
+    doc.text(`Sale Type: ${isCreditSale ? "Credit" : "Cash"}`, 20, 50);
+    if (customer) {
+      doc.text(`Customer: ${customer.name}`, 20, 60);
+      doc.text(`Phone: ${customer.phone}`, 20, 70);
+    }
+
+    let yPos = 90;
+    doc.setFontSize(10);
+    doc.text("Item", 20, yPos);
+    doc.text("Qty", 80, yPos);
+    doc.text("Price", 110, yPos);
+    doc.text("Amount", 150, yPos);
+
+    yPos += 10;
+    lineItems.forEach((item) => {
+      if (item.item) {
+        doc.text(item.item, 20, yPos);
+        doc.text(item.qty || "0", 80, yPos);
+        doc.text(item.pricePerUnit || "0", 110, yPos);
+        doc.text(item.amount.toString(), 150, yPos);
+        yPos += 10;
+      }
+    });
+
+    yPos += 10;
+    doc.setFontSize(12);
+    doc.text(`Total: ₹${calculateTotal()}`, 150, yPos);
+
+    // Generate blob URL for preview
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    setPdfBlobUrl(url);
+    setPdfPreviewOpen(true);
+  };
+
+  const downloadPDF = () => {
+    if (!invoiceDate) return;
+    const link = document.createElement('a');
+    link.href = pdfBlobUrl;
+    link.download = `invoice-${format(invoiceDate, "dd-MM-yyyy")}.pdf`;
+    link.click();
+  };
+
+  const printPDF = () => {
+    if (!pdfBlobUrl) return;
+
+    // Open PDF in new window for printing
+    const printWindow = window.open(pdfBlobUrl);
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
+  const handlePreviewClose = (open: boolean) => {
+    if (!open && pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl("");
+    }
+    setPdfPreviewOpen(open);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newImages = Array.from(files).map(file => ({
+        name: file.name,
+        url: URL.createObjectURL(file)
+      }));
+      setImages([...images, ...newImages]);
+    }
+  };
+
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const fileNames = Array.from(files).map(f => f.name);
+      setDocuments([...documents, ...fileNames]);
+    }
+  };
+
+  const getAvailableFlavours = (itemId: string): string[] => {
+    const item = items.find((i) => i.id === itemId);
+    return item?.flavours || [];
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b p-4">
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-semibold">Sales</h1>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="border-b px-6 pt-4">
+            <TabsList>
+              <TabsTrigger value="add" className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Sale
+              </TabsTrigger>
+              <TabsTrigger value="view" className="gap-2">
+                <Eye className="h-4 w-4" />
+                View Sales ({savedSales.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="add" className="m-0 p-6">
+            <Card className="p-6">
+              <div className="mb-6 flex items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="icon" onClick={resetForm}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-4 ml-auto">
+                  <Select defaultValue="main-godown">
+                    <SelectTrigger className="w-48 !h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="main-godown">Godown: Main Godown</SelectItem>
+                      <SelectItem value="sharma-ji">SHARMA JI GODOWN</SelectItem>
+                      <SelectItem value="sultan">SULTAN GODOWN</SelectItem>
+                      <SelectItem value="dukan">dukan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+          <div className="mb-6 flex items-center gap-4">
+            <span className="font-medium">Sale</span>
+            <div className="flex items-center gap-2">
+              <span className={!isCreditSale ? "text-muted-foreground" : ""}>
+                Credit
+              </span>
+              <Switch
+                checked={!isCreditSale}
+                onCheckedChange={(checked) => setIsCreditSale(!checked)}
+              />
+              <span className={isCreditSale ? "text-muted-foreground" : ""}>
+                Cash
+              </span>
+            </div>
+          </div>
+
+          <div className="mb-6 grid gap-4 md:grid-cols-3">
+            <div>
+              <Label>Customer *</Label>
+              <Select value={selectedCustomerId} onValueChange={handleCustomerChange}>
+                <SelectTrigger className="w-full !h-11">
+                  <SelectValue placeholder="Select Customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {parties
+                    .filter((p) => p.type === "customer")
+                    .map((party) => (
+                      <SelectItem key={party.id} value={party.id}>
+                        {party.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Phone No.</Label>
+              <Input value={customerPhone} readOnly disabled className="bg-muted !h-11 w-full" />
+            </div>
+            <div>
+              <Label>Invoice Date</Label>
+              <Popover>
+                <PopoverTrigger>
+                  <Button variant="outline" className="w-full justify-start gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>{invoiceDate ? format(invoiceDate, "dd/MM/yyyy") : "Select Date"}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={invoiceDate}
+                    onSelect={(date) => date && setInvoiceDate(date)}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <div className="mb-6 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead>ITEM *</TableHead>
+                  <TableHead>FLAVOUR</TableHead>
+                  <TableHead>EXP</TableHead>
+                  <TableHead>MFG DATE</TableHead>
+                  <TableHead>MRP</TableHead>
+                  <TableHead>QTY</TableHead>
+                  <TableHead>UNIT</TableHead>
+                  <TableHead>PRICE/UNIT</TableHead>
+                  <TableHead>AMOUNT</TableHead>
+                  <TableHead className="w-8"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lineItems.map((item, index) => {
+                  const availableFlavours = getAvailableFlavours(item.itemId);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={item.itemId}
+                          onValueChange={(value) => handleItemChange(index, value)}
+                        >
+                          <SelectTrigger className="w-full !h-10">
+                            <SelectValue placeholder="Select Item" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {items.map((item) => (
+                              <SelectItem key={item.id} value={item.id}>
+                                {item.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        {availableFlavours.length > 0 ? (
+                          <Select
+                            value={item.flavour}
+                            onValueChange={(value) => {
+                              const newItems = [...lineItems];
+                              newItems[index].flavour = value || "";
+                              setLineItems(newItems);
+                            }}
+                          >
+                            <SelectTrigger className="w-full !h-10">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableFlavours.map((flavour) => (
+                                <SelectItem key={flavour} value={flavour}>
+                                  {flavour}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            value={item.flavour}
+                            onChange={(e) => {
+                              const newItems = [...lineItems];
+                              newItems[index].flavour = e.target.value;
+                              setLineItems(newItems);
+                            }}
+                            placeholder="N/A"
+                            className="!h-10"
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={item.exp}
+                          onChange={(e) => {
+                            const newItems = [...lineItems];
+                            newItems[index].exp = e.target.value;
+                            setLineItems(newItems);
+                          }}
+                          placeholder="DD/MM/YY"
+                          className="!h-10"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={item.mfgDate}
+                          onChange={(e) => {
+                            const newItems = [...lineItems];
+                            newItems[index].mfgDate = e.target.value;
+                            setLineItems(newItems);
+                          }}
+                          placeholder="DD/MM/YY"
+                          className="!h-10"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={item.mrp}
+                          readOnly
+                          disabled
+                          className="bg-muted !h-10"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={item.qty}
+                          onChange={(e) => {
+                            const newItems = [...lineItems];
+                            newItems[index].qty = e.target.value;
+                            const qty = parseFloat(e.target.value) || 0;
+                            const price = parseFloat(newItems[index].pricePerUnit) || 0;
+                            newItems[index].amount = qty * price;
+                            setLineItems(newItems);
+                          }}
+                          className="!h-10"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input value={item.unit} readOnly disabled className="bg-muted !h-10" />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={item.pricePerUnit}
+                          onChange={(e) => {
+                            const newItems = [...lineItems];
+                            newItems[index].pricePerUnit = e.target.value;
+                            const qty = parseFloat(newItems[index].qty) || 0;
+                            const price = parseFloat(e.target.value) || 0;
+                            newItems[index].amount = qty * price;
+                            setLineItems(newItems);
+                          }}
+                          className="!h-10"
+                        />
+                      </TableCell>
+                      <TableCell>{item.amount}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeRow(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            <Button variant="outline" className="mt-2" onClick={addRow}>
+              ADD ROW
+            </Button>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="space-y-4">
+              <div>
+                <Label>Transport Name</Label>
+                <Select value={transportId} onValueChange={(val) => setTransportId(val || "")}>
+                  <SelectTrigger className="w-full !h-10">
+                    <SelectValue placeholder="Select Transport" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockTransports.map((transport) => (
+                      <SelectItem key={transport.id} value={transport.id}>
+                        {transport.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Terms & Conditions</Label>
+                <Select defaultValue="sale-invoice">
+                  <SelectTrigger className="w-full !h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sale-invoice">Sale Invoice</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Textarea
+                  className="mt-2"
+                  placeholder="Thanks for doing business with us!"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>No. of copies</Label>
+                  <Select defaultValue="original">
+                    <SelectTrigger className="w-full !h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="original">Original</SelectItem>
+                      <SelectItem value="duplicate">Duplicate</SelectItem>
+                      <SelectItem value="triplicate">Triplicate</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Shipping</Label>
+                  <Input
+                    type="number"
+                    value={shipping}
+                    onChange={(e) => setShipping(e.target.value)}
+                    className="!h-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Button variant="outline" className="w-full gap-2 !h-10" onClick={() => setShowDescription(!showDescription)}>
+                  <Plus className="h-4 w-4" />
+                  <span>{showDescription ? 'HIDE DESCRIPTION' : 'ADD DESCRIPTION'}</span>
+                </Button>
+                <Button variant="outline" className="w-full gap-2 !h-10" onClick={() => document.getElementById('image-upload')?.click()}>
+                  <Plus className="h-4 w-4" />
+                  <span>ADD IMAGE {images.length > 0 && `(${images.length})`}</span>
+                </Button>
+                <input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                <Button variant="outline" className="w-full gap-2 !h-10" onClick={() => document.getElementById('document-upload')?.click()}>
+                  <Plus className="h-4 w-4" />
+                  <span>ADD DOCUMENT {documents.length > 0 && `(${documents.length})`}</span>
+                </Button>
+                <input
+                  id="document-upload"
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  multiple
+                  className="hidden"
+                  onChange={handleDocumentUpload}
+                />
+              </div>
+
+              {/* Description Display */}
+              {showDescription && (
+                <div>
+                  <Label>Description</Label>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Add description or notes..."
+                    className="mt-2"
+                    rows={3}
+                  />
+                </div>
+              )}
+
+              {/* Images Display */}
+              {images.length > 0 && (
+                <div>
+                  <Label>Uploaded Images</Label>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {images.map((img, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={img.url}
+                          alt={img.name}
+                          className="h-24 w-24 rounded-md border object-cover"
+                        />
+                        <button
+                          onClick={() => {
+                            URL.revokeObjectURL(img.url);
+                            setImages(images.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute -top-2 -right-2 rounded-full bg-destructive p-1 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        <div className="mt-1 text-xs text-muted-foreground truncate max-w-[96px]">
+                          {img.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents Display */}
+              {documents.length > 0 && (
+                <div>
+                  <Label>Uploaded Documents</Label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {documents.map((doc, idx) => (
+                      <div key={idx} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                        <span className="truncate max-w-[200px]">{doc}</span>
+                        <button
+                          onClick={() => setDocuments(documents.filter((_, i) => i !== idx))}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={roundOff}
+                    onCheckedChange={(checked) =>
+                      setRoundOff(checked as boolean)
+                    }
+                  />
+                  <Label>Round Off</Label>
+                </div>
+                <div>
+                  <span className="text-lg font-semibold">Total</span>
+                  <div className="text-2xl font-bold">
+                    ₹{calculateTotal()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="outline" onClick={generatePDF}>
+              Preview PDF
+            </Button>
+            <Button onClick={handleSave}>Save</Button>
+          </div>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="view" className="m-0 p-6">
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">All Sales</h2>
+              <Button onClick={() => setActiveTab("add")} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Sale
+              </Button>
+            </div>
+
+            {savedSales.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Items</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {savedSales.map((sale, index) => (
+                    <TableRow key={sale.id}>
+                      <TableCell>
+                        {sale.date ? new Date(sale.date).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                      <TableCell>#{index + 1}</TableCell>
+                      <TableCell>{sale.customer?.name || 'N/A'}</TableCell>
+                      <TableCell>{sale.lineItems?.length || 0} items</TableCell>
+                      <TableCell>
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                          sale.isCreditSale
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {sale.isCreditSale ? 'Credit' : 'Cash'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        ₹{sale.total?.toLocaleString() || 0}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              // Generate PDF for this sale
+                              alert('View invoice PDF for sale #' + (index + 1));
+                            }}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const updatedSales = savedSales.filter(s => s.id !== sale.id);
+                              setSavedSales(updatedSales);
+                              localStorage.setItem('sales', JSON.stringify(updatedSales));
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium text-muted-foreground mb-2">No sales yet</p>
+                <p className="text-sm text-muted-foreground mb-4">Create your first sale to see it here</p>
+                <Button onClick={() => setActiveTab("add")} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Your First Sale
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+      </TabsContent>
+    </Tabs>
+  </div>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={pdfPreviewOpen} onOpenChange={handlePreviewClose}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            <div className="flex-1 overflow-hidden rounded-lg border">
+              {pdfBlobUrl && (
+                <iframe
+                  src={pdfBlobUrl}
+                  className="h-full w-full"
+                  title="PDF Preview"
+                />
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={printPDF} className="gap-2">
+                <Printer className="h-4 w-4" />
+                <span>Print</span>
+              </Button>
+              <Button onClick={downloadPDF} className="gap-2">
+                <Download className="h-4 w-4" />
+                <span>Download PDF</span>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
