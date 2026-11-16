@@ -75,7 +75,7 @@ export default function StockReportPage() {
             <div className="space-y-1">
               <Label className="text-xs">Unit</Label>
               <Select value={unit} onValueChange={(v) => v && setUnit(v)}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm"><SelectValue>{(val: string) => ({ all: 'All units', unit1: 'Unit 1 — Andheri', unit2: 'Unit 2 — Bhiwandi' }[val] ?? val)}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All units</SelectItem>
                   <SelectItem value="unit1">Unit 1 — Andheri</SelectItem>
@@ -86,7 +86,7 @@ export default function StockReportPage() {
             <div className="space-y-1">
               <Label className="text-xs">Brand</Label>
               <Select value={brand} onValueChange={(v) => v && setBrand(v)}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm"><SelectValue>{(val: string) => ({ all: 'All brands', br1: 'Optimum Nutrition', br2: 'MuscleBlaze', br4: 'Avatar Nutrition' }[val] ?? val)}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All brands</SelectItem>
                   <SelectItem value="br1">Optimum Nutrition</SelectItem>
@@ -114,7 +114,7 @@ export default function StockReportPage() {
             <p className="text-center text-muted-foreground py-12 text-sm">No stock records found.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead className="border-b border-border bg-muted/40">
                   <tr>
                     {['Variant', 'SKU', 'Bin', 'Sealed Cartons', 'Loose Packs', 'Reserved', 'Available', ...(can('view-cost-prices') ? ['Cost Valuation'] : [])].map(h => (

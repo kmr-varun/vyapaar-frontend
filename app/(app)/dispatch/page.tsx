@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import {
   getDeliveries, createDelivery, markOutForDelivery,
-  confirmDelivery, failDelivery,
 } from '@/lib/services/dispatch'
 import { getOrders } from '@/lib/services/orders'
 import type { Delivery, Order, DeliveryMode } from '@/lib/types'
@@ -14,12 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Truck, MapPin, Phone, AlertTriangle, CheckCircle2, Package } from 'lucide-react'
+import { Truck, MapPin, Phone, CheckCircle2, Package } from 'lucide-react'
 
 function resolveClient(clientId: string) {
   return mockClients.find(c => c.id === clientId)
@@ -74,8 +71,8 @@ function ReadyForDispatchTab({ onDispatched }: { onDispatched: () => void }) {
   }
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="rounded-lg border border-border overflow-x-auto">
+      <table className="w-full text-sm min-w-[600px]">
         <thead className="bg-muted/40">
           <tr>
             <th className="text-left px-4 py-3 font-medium text-muted-foreground">Order</th>
@@ -104,7 +101,7 @@ function ReadyForDispatchTab({ onDispatched }: { onDispatched: () => void }) {
                     onValueChange={v => setModes(prev => ({ ...prev, [o.id]: v as DeliveryMode }))}
                   >
                     <SelectTrigger className="h-8 w-36 text-xs">
-                      <SelectValue />
+                      <SelectValue>{(val: string) => ({ 'delivery-team': 'Delivery Team', 'self-delivery': 'Self Delivery' }[val] ?? val)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="delivery-team">Delivery Team</SelectItem>
@@ -119,7 +116,7 @@ function ReadyForDispatchTab({ onDispatched }: { onDispatched: () => void }) {
                       onValueChange={v => setRiderAssign(prev => ({ ...prev, [o.id]: v ?? '' }))}
                     >
                       <SelectTrigger className="h-8 w-36 text-xs">
-                        <SelectValue placeholder="Assign rider" />
+                        <SelectValue>{(val: string) => val ? (riders.find(r => r.id === val)?.name ?? val) : 'Assign rider'}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {riders.map(r => (
@@ -151,183 +148,13 @@ function ReadyForDispatchTab({ onDispatched }: { onDispatched: () => void }) {
 }
 
 // ——————————————————————————————————————————
-// Delivery Confirmation Dialog
-// ——————————————————————————————————————————
-function DeliveryConfirmDialog({
-  delivery,
-  order,
-  open,
-  onOpenChange,
-  onDone,
-}: {
-  delivery: Delivery
-  order: Order
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  onDone: () => void
-}) {
-  const [otp, setOtp] = useState('')
-  const [usePhoto, setUsePhoto] = useState(false)
-  const [receiverName, setReceiverName] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleConfirm() {
-    setSaving(true)
-    setError('')
-    try {
-      await confirmDelivery(delivery.id, {
-        proofType: usePhoto ? 'photo' : 'otp',
-        otp: usePhoto ? undefined : otp,
-        receiverName: receiverName || undefined,
-        proofUrl: usePhoto ? 'placeholder-photo.jpg' : undefined,
-      })
-      onDone()
-      onOpenChange(false)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Delivery confirmation failed.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const client = resolveClient(order.clientId)
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Confirm Delivery</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1">
-            <p className="font-medium">{client?.businessName}</p>
-            <p className="text-muted-foreground text-xs">{client?.contactName} · {client?.mobile}</p>
-          </div>
-
-          {!usePhoto ? (
-            <div className="space-y-2">
-              <Label className="text-sm">Enter delivery OTP</Label>
-              <Input
-                type="text"
-                inputMode="numeric"
-                maxLength={4}
-                placeholder="4-digit OTP"
-                value={otp}
-                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="text-2xl text-center tracking-widest h-14 font-mono"
-              />
-              <p className="text-xs text-muted-foreground">OTP was sent to customer via WhatsApp.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="border-2 border-dashed rounded-lg p-6 text-center text-muted-foreground text-sm">
-                📷 Photo proof placeholder
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Receiver name</Label>
-                <Input
-                  placeholder="Name of person who received"
-                  value={receiverName}
-                  onChange={e => setReceiverName(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setUsePhoto(p => !p)}
-            className="text-xs text-primary underline"
-          >
-            {usePhoto ? 'Use OTP instead' : "Can't get OTP? Use photo proof"}
-          </button>
-
-          {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
-        </div>
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={saving || (!usePhoto && otp.length !== 4) || (usePhoto && !receiverName)}
-            className="py-3"
-          >
-            {saving ? 'Confirming…' : 'Confirm Delivered'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ——————————————————————————————————————————
-// Fail Delivery Dialog
-// ——————————————————————————————————————————
-function FailDeliveryDialog({
-  delivery,
-  open,
-  onOpenChange,
-  onDone,
-}: {
-  delivery: Delivery
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  onDone: () => void
-}) {
-  const [reason, setReason] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  async function handleFail() {
-    if (!reason) return
-    setSaving(true)
-    await failDelivery(delivery.id, reason)
-    onDone()
-    onOpenChange(false)
-    setSaving(false)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="w-4 h-4" /> Failed Delivery
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Label className="text-sm">Reason for failure</Label>
-          <Select value={reason} onValueChange={(v) => v && setReason(v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select reason" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="not available">Customer not available</SelectItem>
-              <SelectItem value="refused">Customer refused delivery</SelectItem>
-              <SelectItem value="wrong address">Wrong address</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="destructive" disabled={!reason || saving} onClick={handleFail} className="py-3">
-            {saving ? 'Saving…' : 'Mark Failed'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ——————————————————————————————————————————
 // Out for Delivery Tab
 // ——————————————————————————————————————————
 function OutForDeliveryTab({ onDone }: { onDone: () => void }) {
   const { user } = useAuth()
+  const router = useRouter()
   const [deliveries, setDeliveries] = useState<Delivery[]>([])
   const [orders, setOrders] = useState<Order[]>([])
-  const [confirmTarget, setConfirmTarget] = useState<{ delivery: Delivery; order: Order } | null>(null)
-  const [failTarget, setFailTarget] = useState<Delivery | null>(null)
   const [marking, setMarking] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -409,7 +236,10 @@ function OutForDeliveryTab({ onDone }: { onDone: () => void }) {
                   variant="outline"
                   size="sm"
                   className="text-xs"
-                  disabled
+                  onClick={() => {
+                    const address = order.deliveryAddress ?? client?.billingAddress ?? ''
+                    if (address) window.open(`https://maps.google.com/?q=${encodeURIComponent(address)}`, '_blank')
+                  }}
                 >
                   <MapPin className="w-3 h-3 mr-1" />
                   Open in Maps
@@ -437,7 +267,7 @@ function OutForDeliveryTab({ onDone }: { onDone: () => void }) {
                   <Button
                     size="sm"
                     className="py-3 bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => order && setConfirmTarget({ delivery: d, order })}
+                    onClick={() => router.push(`/dispatch/${d.id}/confirm`)}
                   >
                     <CheckCircle2 className="w-4 h-4 mr-1.5" />
                     Confirm Delivery
@@ -448,7 +278,7 @@ function OutForDeliveryTab({ onDone }: { onDone: () => void }) {
                     size="sm"
                     variant="destructive"
                     className="py-3"
-                    onClick={() => setFailTarget(d)}
+                    onClick={() => router.push(`/dispatch/${d.id}/fail`)}
                   >
                     Failed Delivery
                   </Button>
@@ -459,23 +289,6 @@ function OutForDeliveryTab({ onDone }: { onDone: () => void }) {
         )
       })}
 
-      {confirmTarget && (
-        <DeliveryConfirmDialog
-          delivery={confirmTarget.delivery}
-          order={confirmTarget.order}
-          open={true}
-          onOpenChange={() => setConfirmTarget(null)}
-          onDone={() => { load(); onDone() }}
-        />
-      )}
-      {failTarget && (
-        <FailDeliveryDialog
-          delivery={failTarget}
-          open={true}
-          onOpenChange={() => setFailTarget(null)}
-          onDone={() => { load(); onDone() }}
-        />
-      )}
     </div>
   )
 }
@@ -513,8 +326,8 @@ function DeliveryHistoryTab() {
   }
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="rounded-lg border border-border overflow-x-auto">
+      <table className="w-full text-sm min-w-[600px]">
         <thead className="bg-muted/40">
           <tr>
             <th className="text-left px-4 py-3 font-medium text-muted-foreground">Order</th>

@@ -65,7 +65,7 @@ export default function MarginsReportPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="border-b border-border bg-muted/40">
                 <tr>
                   {['Order #', 'Client', 'Variant', 'Qty', 'Revenue', 'Cost', 'Margin', 'Margin %'].map(h => (

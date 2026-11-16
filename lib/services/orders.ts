@@ -1,6 +1,7 @@
-import { mockOrders, mockClients } from '../mock-data'
-import type { Order, OrderLine, CallLog, OrderStatus, CheckoutFormData } from '../types'
+import { mockOrders, mockClients, mockUsers } from '../mock-data'
+import type { Order, OrderLine, CallLog, OrderStatus, CheckoutFormData, Enquiry } from '../types'
 import { delay, generateId, nowISO } from './_mock'
+import { logAction } from './audit'
 
 function orderNumber(): string {
   const d = new Date()
@@ -57,6 +58,8 @@ export async function createOrderFromCatalog(form: CheckoutFormData, lines: Orde
   }
   order.lines.forEach(l => { l.orderId = order.id })
   mockOrders.push(order)
+  const actor = mockUsers.find(u => u.id === 'u1')!
+  void logAction({ userId: actor.id, userName: actor.name, userRole: actor.role, action: 'create', entity: 'Order', entityId: order.id, ip: '0.0.0.0' })
   return order
 }
 
@@ -76,6 +79,49 @@ export async function createOrderManual(clientId: string, lines: Array<{ variant
   }
   order.lines.forEach(l => { l.orderId = order.id })
   mockOrders.push(order)
+  const actor = mockUsers.find(u => u.id === 'u1')!
+  void logAction({ userId: actor.id, userName: actor.name, userRole: actor.role, action: 'create', entity: 'Order', entityId: order.id, ip: '0.0.0.0' })
+  return order
+}
+
+export async function createOrderFromEnquiry(enq: Enquiry): Promise<Order> {
+  await delay(500)
+  let client = mockClients.find(c => c.mobile === enq.mobile)
+  if (!client) {
+    client = {
+      id: generateId(),
+      businessName: enq.businessName ?? enq.contactName,
+      contactName: enq.contactName,
+      mobile: enq.mobile,
+      billingAddress: enq.deliveryAddress ?? '',
+      creditLimit: 0,
+      creditDays: 0,
+      active: true,
+      createdAt: nowISO(),
+      source: 'catalog',
+    }
+    mockClients.push(client)
+  }
+  const slaDeadline = new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+  const order: Order = {
+    id: generateId(),
+    number: orderNumber(),
+    clientId: client.id,
+    status: 'confirmed',
+    source: 'catalog',
+    deliveryAddress: enq.deliveryAddress,
+    preferredDeliveryDate: enq.preferredDate,
+    notes: enq.notes,
+    lines: enq.lines.map(l => ({ id: generateId(), orderId: '', variantId: l.variantId, qtyCartons: 0, qtyPacks: l.quantity })),
+    callLogs: [],
+    createdAt: nowISO(),
+    slaDeadline,
+    confirmedAt: nowISO(),
+  }
+  order.lines.forEach(l => { l.orderId = order.id })
+  mockOrders.push(order)
+  const actor = mockUsers.find(u => u.id === 'u1')!
+  void logAction({ userId: actor.id, userName: actor.name, userRole: actor.role, action: 'create', entity: 'Order', entityId: order.id, ip: '0.0.0.0' })
   return order
 }
 
@@ -88,6 +134,8 @@ export async function logCall(orderId: string, log: Omit<CallLog, 'id' | 'orderI
   if (log.outcome === 'confirmed') {
     order.status = 'confirmed'
     order.confirmedAt = nowISO()
+    const actor = mockUsers.find(u => u.id === (log.userId ?? 'u1')) ?? mockUsers.find(u => u.id === 'u1')!
+    void logAction({ userId: actor.id, userName: actor.name, userRole: actor.role, action: 'status-change', entity: 'Order', entityId: orderId, ip: '0.0.0.0', after: { status: 'confirmed' } })
   } else if (log.outcome === 'cancelled') {
     order.status = 'cancelled'
   } else if (log.outcome === 'changes-requested') {
@@ -114,6 +162,9 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
   await delay(300)
   const order = mockOrders.find(o => o.id === orderId)
   if (!order) throw new Error('Order not found.')
+  const before = order.status
   order.status = status
+  const actor = mockUsers.find(u => u.id === 'u1')!
+  void logAction({ userId: actor.id, userName: actor.name, userRole: actor.role, action: 'status-change', entity: 'Order', entityId: orderId, ip: '0.0.0.0', before: { status: before }, after: { status } })
   return order
 }

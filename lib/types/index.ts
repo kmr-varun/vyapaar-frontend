@@ -301,6 +301,8 @@ export interface StockDisplay {
   productName: string
   brandName: string
   binCode: string
+  binName: string    // human-readable: "Rack A · Bin 2"
+  rackName: string
   binId: string
   sealedCartons: number
   loosePacks: number
@@ -605,4 +607,57 @@ export interface CheckoutFormData {
   deliveryAddress: string
   preferredDeliveryDate: string
   notes?: string
+}
+
+// ==================== CATALOG LINKS ====================
+export interface CatalogLink {
+  id: string
+  token: string
+  title: string
+  brandIds: string[]
+  productIds: string[]  // empty = all products in selected brands
+  expiresAt: string     // ISO timestamp, 24h from creation
+  createdBy: string
+  createdAt: string
+  viewCount: number
+  checkoutCount: number
+  active: boolean
+}
+
+// ==================== ENQUIRIES ====================
+export type EnquiryStatus = 'new' | 'called' | 'confirmed' | 'cancelled'
+export type EnquiryPaymentType = 'cash' | 'credit'
+
+export interface EnquiryLine {
+  variantId: string
+  quantity: number  // number of packs
+  note?: string
+}
+
+export interface EnquiryCallLog {
+  note: string
+  outcome: 'reached' | 'not-reachable' | 'confirmed' | 'changes-made'
+  at: string
+  by: string
+  byName: string
+}
+
+export interface Enquiry {
+  id: string
+  number: string    // ENQ-YYMM-NNNNN
+  catalogLinkId?: string
+  contactName: string
+  mobile: string
+  email?: string
+  businessName?: string
+  deliveryAddress?: string
+  preferredDate?: string
+  notes?: string
+  lines: EnquiryLine[]
+  status: EnquiryStatus
+  paymentType?: EnquiryPaymentType
+  callLogs: EnquiryCallLog[]
+  createdAt: string
+  updatedAt: string
+  orderId?: string  // set when converted to order
 }

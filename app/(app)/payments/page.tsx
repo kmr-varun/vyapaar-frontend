@@ -2,15 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
-import { getPayments, verifyPayment, rejectPayment, approveCreditOrder, getClientOutstanding } from '@/lib/services/payments'
+import { getPayments, verifyPayment, approveCreditOrder, getClientOutstanding } from '@/lib/services/payments'
 import { getOrders } from '@/lib/services/orders'
 import { getClients } from '@/lib/services/clients'
 import type { Payment, Order, Client } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -38,14 +39,12 @@ const modeBadge: Record<string, string> = {
 
 export default function PaymentsPage() {
   const { user, can } = useAuth()
+  const router = useRouter()
   const [payments, setPayments] = useState<Payment[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [outstanding, setOutstanding] = useState<Array<{ client: Client; outstanding: number; overdueDays: number }>>([])
   const [loading, setLoading] = useState(true)
-  const [rejectOpen, setRejectOpen] = useState(false)
-  const [rejectId, setRejectId] = useState('')
-  const [rejectReason, setRejectReason] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [ledgerClientId, setLedgerClientId] = useState('')
   const [creditOrderId, setCreditOrderId] = useState('')
@@ -92,20 +91,6 @@ export default function PaymentsPage() {
     try {
       const updated = await verifyPayment(id, user.id)
       setPayments(prev => prev.map(p => p.id === id ? updated : p))
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  async function handleReject() {
-    if (!rejectId || !rejectReason.trim()) return
-    setActionLoading(rejectId)
-    try {
-      const updated = await rejectPayment(rejectId, rejectReason)
-      setPayments(prev => prev.map(p => p.id === rejectId ? updated : p))
-      setRejectOpen(false)
-      setRejectId('')
-      setRejectReason('')
     } finally {
       setActionLoading(null)
     }
@@ -167,7 +152,7 @@ export default function PaymentsPage() {
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm">{getClientName(pay.orderId)}</span>
-                        <span className="text-xs text-muted-foreground">{getOrderNumber(pay.orderId)}</span>
+                        <Link href={`/orders/${pay.orderId}`} className="text-xs text-primary hover:underline font-mono">{getOrderNumber(pay.orderId)}</Link>
                         {isDupeUtr(pay) && (
                           <span className="inline-flex items-center gap-1 text-xs bg-amber-500/15 text-amber-600 px-2 py-0.5 rounded">
                             <AlertTriangle className="w-3 h-3" /> Duplicate UTR
@@ -199,7 +184,7 @@ export default function PaymentsPage() {
                           size="sm" variant="outline"
                           className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
                           disabled={actionLoading === pay.id}
-                          onClick={() => { setRejectId(pay.id); setRejectOpen(true) }}
+                          onClick={() => router.push(`/payments/${pay.id}/reject`)}
                         >
                           <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
                         </Button>
@@ -223,8 +208,8 @@ export default function PaymentsPage() {
 
         {/* All payments tab */}
         <TabsContent value="all" className="mt-4">
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-lg border border-border overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-muted/40">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Client / Order</th>
@@ -245,7 +230,7 @@ export default function PaymentsPage() {
                   <tr key={pay.id} className="border-t border-border hover:bg-muted/20">
                     <td className="px-4 py-3">
                       <p className="font-medium">{getClientName(pay.orderId)}</p>
-                      <p className="text-xs text-muted-foreground">{getOrderNumber(pay.orderId)}</p>
+                      <Link href={`/orders/${pay.orderId}`} className="text-xs text-primary hover:underline font-mono">{getOrderNumber(pay.orderId)}</Link>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${modeBadge[pay.mode]}`}>
@@ -382,33 +367,6 @@ export default function PaymentsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Reject Dialog */}
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Reject Payment</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Label className="text-xs">Reason for rejection</Label>
-            <Textarea
-              rows={3}
-              placeholder="Describe the issue (UTR mismatch, incorrect amount, etc.)"
-              value={rejectReason}
-              onChange={e => setRejectReason(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={!rejectReason.trim() || actionLoading === rejectId}
-              onClick={handleReject}
-            >
-              {actionLoading === rejectId ? 'Rejecting…' : 'Reject Payment'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

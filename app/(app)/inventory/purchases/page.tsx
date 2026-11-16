@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
-import { getPurchases, createPurchase, getGRNs, createGRN } from '@/lib/services/inventory'
+import { getPurchases, getGRNs, createGRN } from '@/lib/services/inventory'
 import { getVendors } from '@/lib/services/vendors'
 import { getVariants } from '@/lib/services/variants'
 import { getUnits, getFloors } from '@/lib/services/warehouse'
@@ -14,7 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Trash2, AlertTriangle } from 'lucide-react'
+import { Plus, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 
 function fmtDate(d: string) { try { return format(new Date(d), 'dd MMM yyyy') } catch { return d } }
@@ -26,7 +27,6 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   'putaway-done': { label: 'Put Away', className: 'bg-green-500/15 text-green-600 border-green-500/30' },
 }
 
-interface PurchaseLineForm { variantId: string; expectedCartons: number; expectedPacks: number; pricePerPack: number }
 interface GRNLineForm { purchaseLineId: string; variantId: string; variantLabel: string; expectedCartons: number; expectedPacks: number; receivedCartons: number; receivedPacks: number; shortQty: number; damagedQty: number; batch: string; expiry: string }
 
 export default function PurchasesPage() {
@@ -40,12 +40,6 @@ export default function PurchasesPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [floors, setFloors] = useState<Floor[]>([])
   const [loading, setLoading] = useState(true)
-
-  const [purchaseDialog, setPurchaseDialog] = useState(false)
-  const [pForm, setPForm] = useState({ vendorId: '', invoiceNumber: '', invoiceDate: '', unitId: '', createdBy: 'u2' })
-  const [pLines, setPLines] = useState<PurchaseLineForm[]>([{ variantId: '', expectedCartons: 1, expectedPacks: 0, pricePerPack: 0 }])
-  const [pSaving, setPSaving] = useState(false)
-  const [pError, setPError] = useState('')
 
   const [grnDialog, setGRNDialog] = useState<Purchase | null>(null)
   const [grnFloorId, setGRNFloorId] = useState('')
@@ -86,31 +80,6 @@ export default function PurchasesPage() {
     setGRNFloorId('')
     setGRNError('')
     setGRNDialog(purchase)
-  }
-
-  async function handleCreatePurchase() {
-    if (!pForm.vendorId || !pForm.invoiceNumber || !pForm.unitId) { setPError('Fill all required fields.'); return }
-    if (pLines.some(l => !l.variantId)) { setPError('Select a variant for each line.'); return }
-    setPSaving(true)
-    setPError('')
-    try {
-      const purchase = await createPurchase({
-        vendorId: pForm.vendorId,
-        vendorInvoiceNumber: pForm.invoiceNumber,
-        vendorInvoiceDate: pForm.invoiceDate,
-        unitId: pForm.unitId,
-        lines: pLines.map((l, i) => ({ id: `newpl${i}`, purchaseId: '', ...l })),
-        createdBy: pForm.createdBy,
-      })
-      setPurchases(prev => [purchase, ...prev])
-      setPurchaseDialog(false)
-      setPForm({ vendorId: '', invoiceNumber: '', invoiceDate: '', unitId: '', createdBy: 'u2' })
-      setPLines([{ variantId: '', expectedCartons: 1, expectedPacks: 0, pricePerPack: 0 }])
-    } catch (err: unknown) {
-      setPError(err instanceof Error ? err.message : 'Failed.')
-    } finally {
-      setPSaving(false)
-    }
   }
 
   async function handleCreateGRN() {
@@ -169,15 +138,17 @@ export default function PurchasesPage() {
               </TabsTrigger>
             </TabsList>
             {canAdd && (
-              <Button size="sm" onClick={() => setPurchaseDialog(true)}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Purchase
-              </Button>
+              <Link href="/inventory/purchases/new">
+                <Button size="sm">
+                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Purchase
+                </Button>
+              </Link>
             )}
           </div>
 
           <TabsContent value="purchases">
-            <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border border-border overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead className="bg-muted/40">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Invoice #</th>
@@ -218,8 +189,8 @@ export default function PurchasesPage() {
           </TabsContent>
 
           <TabsContent value="grn">
-            <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border border-border overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead className="bg-muted/40">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">GRN ID</th>
@@ -256,81 +227,6 @@ export default function PurchasesPage() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Add Purchase Dialog */}
-      <Dialog open={purchaseDialog} onOpenChange={setPurchaseDialog}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Add Purchase</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Vendor *</Label>
-                <Select value={pForm.vendorId} onValueChange={v => setPForm(p => ({ ...p, vendorId: v ?? p.vendorId }))}>
-                  <SelectTrigger className="text-sm"><SelectValue placeholder="Select vendor" /></SelectTrigger>
-                  <SelectContent>{vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Unit *</Label>
-                <Select value={pForm.unitId} onValueChange={v => setPForm(p => ({ ...p, unitId: v ?? p.unitId }))}>
-                  <SelectTrigger className="text-sm"><SelectValue placeholder="Select unit" /></SelectTrigger>
-                  <SelectContent>{units.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Invoice Number *</Label>
-                <Input value={pForm.invoiceNumber} onChange={e => setPForm(p => ({ ...p, invoiceNumber: e.target.value }))} placeholder="INV-2611-001" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Invoice Date</Label>
-                <Input type="date" value={pForm.invoiceDate} onChange={e => setPForm(p => ({ ...p, invoiceDate: e.target.value }))} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Line Items *</Label>
-                <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setPLines(prev => [...prev, { variantId: '', expectedCartons: 1, expectedPacks: 0, pricePerPack: 0 }])}>
-                  <Plus className="w-3 h-3 mr-1" /> Add Line
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {pLines.map((line, i) => (
-                  <div key={i} className="grid grid-cols-5 gap-2 items-end">
-                    <div className="col-span-2 space-y-1">
-                      {i === 0 && <Label className="text-xs">Variant</Label>}
-                      <Select value={line.variantId} onValueChange={v => setPLines(prev => prev.map((l, idx) => idx === i ? { ...l, variantId: v ?? l.variantId } : l))}>
-                        <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Select variant" /></SelectTrigger>
-                        <SelectContent>{variants.map(v => <SelectItem key={v.id} value={v.id}>{v.skuCode} — {v.flavour}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      {i === 0 && <Label className="text-xs">Cartons</Label>}
-                      <Input type="number" min={0} className="h-8 text-xs" value={line.expectedCartons} onChange={e => setPLines(prev => prev.map((l, idx) => idx === i ? { ...l, expectedCartons: parseInt(e.target.value) || 0 } : l))} />
-                    </div>
-                    <div className="space-y-1">
-                      {i === 0 && <Label className="text-xs">Price/pack ₹</Label>}
-                      <Input type="number" min={0} className="h-8 text-xs" value={line.pricePerPack} onChange={e => setPLines(prev => prev.map((l, idx) => idx === i ? { ...l, pricePerPack: parseFloat(e.target.value) || 0 } : l))} />
-                    </div>
-                    <div className="flex items-end">
-                      {pLines.length > 1 && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setPLines(prev => prev.filter((_, idx) => idx !== i))}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {pError && <p className="text-xs text-destructive">{pError}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPurchaseDialog(false)}>Cancel</Button>
-            <Button onClick={handleCreatePurchase} disabled={pSaving}>{pSaving ? 'Saving…' : 'Create Purchase'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Create GRN Dialog */}
       <Dialog open={!!grnDialog} onOpenChange={() => setGRNDialog(null)}>

@@ -1,7 +1,7 @@
 import {
   mockStockBalances, mockStockLedger, mockLots, mockOpenedCartons,
   mockPurchases, mockGRNs, mockTransfers, mockAdjustments,
-  mockVariants, mockProducts, mockBrands, mockBins,
+  mockVariants, mockProducts, mockBrands, mockBins, mockRacks,
 } from '../mock-data'
 import type {
   StockDisplay, StockBalance, Lot, OpenedCarton,
@@ -22,6 +22,7 @@ export async function getStockDisplay(filters?: { unitId?: string; floorId?: str
       const product = variant ? mockProducts.find(p => p.id === variant.productId) : undefined
       const brand = product ? mockBrands.find(b => b.id === product.brandId) : undefined
       const bin = mockBins.find(b => b.id === sb.binId)
+      const rack = bin ? mockRacks.find(r => r.id === bin.rackId) : undefined
       const lot = mockLots.find(l => l.id === sb.lotId)
       const availablePacks = sb.sealedPacks + sb.loosePacks - sb.reservedPacks
       const unitsPerCarton = variant?.unitsPerCarton ?? 1
@@ -32,6 +33,8 @@ export async function getStockDisplay(filters?: { unitId?: string; floorId?: str
         productName: product?.name ?? '',
         brandName: brand?.name ?? '',
         binCode: bin?.code ?? '',
+        binName: bin ? `${rack?.name ?? '—'} · ${bin.name}` : '',
+        rackName: rack?.name ?? '',
         binId: sb.binId,
         sealedCartons: Math.floor(sb.sealedPacks / unitsPerCarton),
         loosePacks: sb.loosePacks,

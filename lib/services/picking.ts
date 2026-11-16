@@ -1,5 +1,5 @@
-import { mockPickLists, mockCartonOpenRequests, mockRemainingDeclarations, mockPackages } from '../mock-data'
-import type { PickList, PickLine, CartonOpenRequest, RemainingDeclaration, Package } from '../types'
+import { mockPickLists, mockCartonOpenRequests, mockRemainingDeclarations, mockPackages, mockLots, mockStockBalances, mockFloors, mockOrders } from '../mock-data'
+import type { PickList, PickLine, CartonOpenRequest, RemainingDeclaration, Package, Order } from '../types'
 import { delay, generateId, nowISO } from './_mock'
 
 export async function getPickLists(floorId?: string, orderId?: string): Promise<PickList[]> {
@@ -8,6 +8,39 @@ export async function getPickLists(floorId?: string, orderId?: string): Promise<
     (floorId === undefined || pl.floorId === floorId) &&
     (orderId === undefined || pl.orderId === orderId)
   )
+}
+
+export async function createPickList(order: Order): Promise<PickList> {
+  await delay(400)
+  const floor = mockFloors.find(f => f.active) ?? mockFloors[0]
+  const lines: PickLine[] = order.lines.map(ol => {
+    const lot = mockLots.find(l => l.variantId === ol.variantId)
+    const stock = lot ? mockStockBalances.find(s => s.variantId === ol.variantId && s.lotId === lot.id) : undefined
+    return {
+      id: generateId(),
+      pickListId: '',
+      orderLineId: ol.id,
+      variantId: ol.variantId,
+      lotId: lot?.id ?? 'unknown',
+      binId: stock?.binId ?? 'unknown',
+      sealedCartons: ol.qtyCartons,
+      loosePacks: ol.qtyPacks,
+      status: 'pending' as const,
+    }
+  })
+  const pl: PickList = {
+    id: generateId(),
+    orderId: order.id,
+    floorId: floor.id,
+    status: 'pending',
+    lines,
+    createdAt: nowISO(),
+  }
+  pl.lines.forEach(l => { l.pickListId = pl.id })
+  mockPickLists.push(pl)
+  const orderRef = mockOrders.find(o => o.id === order.id)
+  if (orderRef) orderRef.status = 'in-warehouse'
+  return pl
 }
 
 export async function getPickList(id: string): Promise<PickList> {
@@ -24,8 +57,18 @@ export async function confirmPickLine(pickListId: string, lineId: string, data: 
   const lineIdx = pl.lines.findIndex(l => l.id === lineId)
   if (lineIdx === -1) throw new Error('Pick line not found.')
   pl.lines[lineIdx] = { ...pl.lines[lineIdx], ...data, status: data.shortReason ? 'short' : 'picked' }
+  if (pl.status === 'pending') pl.status = 'in-progress'
   const allDone = pl.lines.every(l => l.status !== 'pending')
   if (allDone) pl.status = 'picked'
+  const order = mockOrders.find(o => o.id === pl.orderId)
+  if (order) {
+    if (allDone) {
+      const allListsPicked = mockPickLists.filter(p => p.orderId === pl.orderId).every(p => p.status === 'picked')
+      if (allListsPicked) order.status = 'picking'
+    } else if (order.status === 'in-warehouse') {
+      order.status = 'picking'
+    }
+  }
   return pl.lines[lineIdx]
 }
 
@@ -92,7 +135,14 @@ export async function markPackagePacked(id: string): Promise<Package> {
   if (idx === -1) throw new Error('Package not found.')
   mockPackages[idx].status = 'packed'
   mockPackages[idx].packedAt = nowISO()
-  return mockPackages[idx]
+  const pkg = mockPackages[idx]
+  const orderPackages = mockPackages.filter(p => p.orderId === pkg.orderId)
+  const allPacked = orderPackages.every(p => p.status === 'packed')
+  if (allPacked) {
+    const order = mockOrders.find(o => o.id === pkg.orderId)
+    if (order) order.status = 'packed'
+  }
+  return pkg
 }
 
 export async function getPackages(orderId?: string): Promise<Package[]> {

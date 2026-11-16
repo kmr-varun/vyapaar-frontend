@@ -66,8 +66,8 @@ export default function AccountantPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">GST Summary by Rate</CardTitle>
         </CardHeader>
-        <CardContent>
-          <table className="w-full text-sm">
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead className="border-b border-border">
               <tr className="text-muted-foreground">
                 <th className="text-left pb-2">GST Rate</th>
@@ -103,7 +103,7 @@ export default function AccountantPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="border-b border-border bg-muted/40">
                 <tr>
                   {['Invoice #', 'Date', 'Client', 'Order #', 'Gross', 'GST', 'Net (ex. GST)'].map(h => (
@@ -136,7 +136,7 @@ export default function AccountantPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="border-b border-border bg-muted/40">
                 <tr>
                   {['Date', 'Order #', 'Client', 'Mode', 'Amount', 'UTR / Reference', 'Verified By'].map(h => (

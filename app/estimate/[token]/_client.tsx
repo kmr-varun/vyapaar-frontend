@@ -276,7 +276,7 @@ export default function PublicEstimatePageClient() {
       </div>
 
       <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Payment Proof</DialogTitle>
           </DialogHeader>
@@ -297,7 +297,7 @@ export default function PublicEstimatePageClient() {
               <div className="space-y-1.5">
                 <Label className="text-xs">Payment Mode</Label>
                 <Select value={payMode} onValueChange={v => setPayMode(v as PaymentMode)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue>{(val: string) => ({ upi: 'UPI', bank: 'Bank Transfer', cash: 'Cash' }[val] ?? val)}</SelectValue></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="upi">UPI</SelectItem>
                     <SelectItem value="bank">Bank Transfer</SelectItem>
@@ -327,7 +327,7 @@ export default function PublicEstimatePageClient() {
       </Dialog>
 
       <Dialog open={changeOpen} onOpenChange={setChangeOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Request a Change</DialogTitle>
           </DialogHeader>

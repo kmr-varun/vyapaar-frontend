@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import {
   getPickLists, confirmPickLine, getCartonOpenRequests,
   approveCartonOpenRequest, rejectCartonOpenRequest,
   getRemainingDeclarations, confirmRemainingDeclaration,
-  createCartonOpenRequest, createPackage, markPackagePacked, getPackages,
+  createPackage, markPackagePacked, getPackages,
 } from '@/lib/services/picking'
-import type { PickList, PickLine, CartonOpenRequest, RemainingDeclaration, Package } from '@/lib/types'
+import type { PickList, CartonOpenRequest, RemainingDeclaration, Package } from '@/lib/types'
 import { mockVariants, mockLots, mockBins, mockFloors, mockOrders, mockUsers } from '@/lib/mock-data'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -19,9 +20,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { AlertTriangle, CheckCircle2, Package as PackageIcon, ClipboardList, Boxes, Minus, Plus } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Package as PackageIcon, ClipboardList, Boxes } from 'lucide-react'
 
 function statusBadge(status: PickList['status']) {
   const map: Record<string, string> = {
@@ -53,222 +53,12 @@ function resolveUser(userId: string) {
 }
 
 // ——————————————————————————————————————————
-// Qty Stepper (mobile-first, 44px+ buttons)
-// ——————————————————————————————————————————
-function QtyStep({ value, onChange, min = 0, max }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      <button
-        type="button"
-        className="w-11 h-11 flex items-center justify-center rounded-lg border border-border hover:bg-muted active:scale-95 transition-all"
-        onClick={() => onChange(Math.max(min, value - 1))}
-      >
-        <Minus className="w-4 h-4" />
-      </button>
-      <Input
-        type="number"
-        value={value}
-        onChange={e => {
-          const v = parseInt(e.target.value) || 0
-          onChange(max !== undefined ? Math.min(max, Math.max(min, v)) : Math.max(min, v))
-        }}
-        className="w-16 text-center text-lg font-semibold"
-      />
-      <button
-        type="button"
-        className="w-11 h-11 flex items-center justify-center rounded-lg border border-border hover:bg-muted active:scale-95 transition-all"
-        onClick={() => onChange(max !== undefined ? Math.min(max, value + 1) : value + 1)}
-      >
-        <Plus className="w-4 h-4" />
-      </button>
-    </div>
-  )
-}
-
-// ——————————————————————————————————————————
-// Pick Detail Dialog
-// ——————————————————————————————————————————
-function PickDetailDialog({
-  pickList,
-  open,
-  onOpenChange,
-  onDone,
-}: {
-  pickList: PickList
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  onDone: () => void
-}) {
-  const { user } = useAuth()
-  const [lineStates, setLineStates] = useState<Record<string, { cartons: number; packs: number; short: boolean; reason: string }>>({})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    const init: typeof lineStates = {}
-    pickList.lines.forEach(l => {
-      init[l.id] = {
-        cartons: l.sealedCartons,
-        packs: l.loosePacks,
-        short: false,
-        reason: '',
-      }
-    })
-    setLineStates(init)
-  }, [pickList])
-
-  function updateLine(id: string, patch: Partial<typeof lineStates[string]>) {
-    setLineStates(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }))
-  }
-
-  async function handleConfirm() {
-    if (!user) return
-    setSaving(true)
-    setError('')
-    try {
-      for (const line of pickList.lines) {
-        const s = lineStates[line.id]
-        if (!s) continue
-        await confirmPickLine(pickList.id, line.id, {
-          pickedCartons: s.cartons,
-          pickedPacks: s.packs,
-          shortReason: s.short ? (s.reason || 'not found') : undefined,
-        })
-      }
-      onDone()
-      onOpenChange(false)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to confirm picks.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleCartonOpenRequest(line: PickLine) {
-    if (!user) return
-    await createCartonOpenRequest({
-      pickLineId: line.id,
-      variantId: line.variantId,
-      lotId: line.lotId,
-      binId: line.binId,
-      packsNeeded: line.loosePacks,
-      orderId: pickList.orderId,
-      requestedBy: user.id,
-    })
-    onOpenChange(false)
-    onDone()
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="w-5 h-5" />
-            Pick List — {resolveOrder(pickList.orderId)?.number}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {pickList.lines.map(line => {
-            const variant = resolveVariant(line.variantId)
-            const lot = resolveLot(line.lotId)
-            const bin = resolveBin(line.binId)
-            const s = lineStates[line.id]
-            if (!s) return null
-            const needsLoose = line.loosePacks > 0
-
-            return (
-              <Card key={line.id} className={line.status === 'short' ? 'border-destructive/50' : ''}>
-                <CardContent className="pt-4 space-y-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-sm">{variant?.flavour} {variant?.packSize}{variant?.packUnit}</p>
-                      <p className="text-xs text-muted-foreground">{variant?.skuCode}</p>
-                      <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
-                        <span>Bin: <span className="font-mono text-foreground">{bin?.code}</span></span>
-                        <span>Batch: {lot?.batch}</span>
-                        <span>Exp: {lot?.expiry}</span>
-                      </div>
-                    </div>
-                    {line.status !== 'pending' && (
-                      <Badge className={line.status === 'picked' ? 'bg-green-500/15 text-green-500' : 'bg-destructive/15 text-destructive'}>
-                        {line.status}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-2">Sealed cartons to pick: {line.sealedCartons}</p>
-                      <QtyStep value={s.cartons} onChange={v => updateLine(line.id, { cartons: v })} max={line.sealedCartons} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-2">Loose packs to pick: {line.loosePacks}</p>
-                      <div className="space-y-2">
-                        <QtyStep value={s.packs} onChange={v => updateLine(line.id, { packs: v })} max={line.loosePacks} />
-                        {needsLoose && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="text-xs w-full"
-                            onClick={() => handleCartonOpenRequest(line)}
-                          >
-                            Request Carton Open
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id={`short-${line.id}`}
-                      checked={s.short}
-                      onCheckedChange={v => updateLine(line.id, { short: !!v })}
-                    />
-                    <Label htmlFor={`short-${line.id}`} className="text-sm">Short pick</Label>
-                    {s.short && (
-                      <Select value={s.reason} onValueChange={v => updateLine(line.id, { reason: v ?? undefined })}>
-                        <SelectTrigger className="h-8 text-xs flex-1">
-                          <SelectValue placeholder="Reason" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="not found">Not found</SelectItem>
-                          <SelectItem value="damaged">Damaged</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-
-        {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleConfirm} disabled={saving} className="py-3 px-6">
-            {saving ? 'Saving…' : 'Confirm All Picks'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ——————————————————————————————————————————
 // Pick Lists Tab
 // ——————————————————————————————————————————
 function PickListsTab({ refresh }: { refresh: () => void }) {
   const { user } = useAuth()
+  const router = useRouter()
   const [lists, setLists] = useState<PickList[]>([])
-  const [selected, setSelected] = useState<PickList | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -294,8 +84,8 @@ function PickListsTab({ refresh }: { refresh: () => void }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rounded-lg border border-border overflow-x-auto">
+        <table className="w-full text-sm min-w-[600px]">
           <thead className="bg-muted/40">
             <tr>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Order</th>
@@ -323,7 +113,7 @@ function PickListsTab({ refresh }: { refresh: () => void }) {
                     {(pl.status === 'pending' || pl.status === 'in-progress') && (
                       <Button
                         size="sm"
-                        onClick={() => { setSelected(pl); setDialogOpen(true) }}
+                        onClick={() => router.push(`/picking/${pl.id}`)}
                       >
                         {pl.status === 'pending' ? 'Start Picking' : 'Continue'}
                       </Button>
@@ -344,14 +134,6 @@ function PickListsTab({ refresh }: { refresh: () => void }) {
         </table>
       </div>
 
-      {selected && (
-        <PickDetailDialog
-          pickList={selected}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onDone={() => { load(); refresh() }}
-        />
-      )}
     </div>
   )
 }
@@ -412,8 +194,8 @@ function CartonRequestsTab() {
         {pending.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">No pending requests</p>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-lg border border-border overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-muted/40">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Order</th>
@@ -684,6 +466,8 @@ function PackingTab() {
 // ——————————————————————————————————————————
 export default function PickingPage() {
   const [refreshKey, setRefreshKey] = useState(0)
+  const searchParams = useSearchParams()
+  const defaultTab = searchParams.get('tab') ?? 'pick-lists'
 
   return (
     <div className="p-6 space-y-6">
@@ -692,7 +476,7 @@ export default function PickingPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Pick lists, carton requests, and packing confirmation</p>
       </div>
 
-      <Tabs defaultValue="pick-lists">
+      <Tabs defaultValue={defaultTab}>
         <TabsList className="grid w-full grid-cols-3 max-w-lg">
           <TabsTrigger value="pick-lists" className="text-sm">
             <ClipboardList className="w-4 h-4 mr-1.5" />Pick Lists

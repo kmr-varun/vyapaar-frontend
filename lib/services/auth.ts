@@ -1,6 +1,7 @@
 import { mockUsers } from '../mock-data'
 import type { User, AuthSession } from '../types'
 import { delay, nowISO } from './_mock'
+import { logAction } from './audit'
 
 // Simulated password store: userCode → password
 const passwords: Record<string, string> = {
@@ -75,6 +76,8 @@ export async function createUser(data: Omit<User, 'id' | 'createdAt'> & { passwo
   const user: User = { ...userData, id: crypto.randomUUID(), createdAt: new Date().toISOString() }
   mockUsers.push(user)
   passwords[user.userCode.toUpperCase()] = password
+  const admin = mockUsers.find(u => u.id === 'u1')!
+  void logAction({ userId: admin.id, userName: admin.name, userRole: admin.role, action: 'create', entity: 'User', entityId: user.id, ip: '0.0.0.0', after: { name: user.name, role: user.role, userCode: user.userCode } })
   return user
 }
 
@@ -83,6 +86,8 @@ export async function updateUser(id: string, data: Partial<User>): Promise<User>
   const idx = mockUsers.findIndex(u => u.id === id)
   if (idx === -1) throw new Error('User not found.')
   mockUsers[idx] = { ...mockUsers[idx], ...data }
+  const admin = mockUsers.find(u => u.id === 'u1')!
+  void logAction({ userId: admin.id, userName: admin.name, userRole: admin.role, action: 'update', entity: 'User', entityId: id, ip: '0.0.0.0', after: data })
   return mockUsers[idx]
 }
 
@@ -92,6 +97,8 @@ export async function resetUserPassword(id: string, newPassword: string): Promis
   if (!user) throw new Error('User not found.')
   passwords[user.userCode.toUpperCase()] = newPassword
   user.mustChangePassword = true
+  const admin = mockUsers.find(u => u.id === 'u1')!
+  void logAction({ userId: admin.id, userName: admin.name, userRole: admin.role, action: 'update', entity: 'User', entityId: id, ip: '0.0.0.0', after: { passwordReset: true } })
 }
 
 export async function unlockUser(id: string): Promise<void> {

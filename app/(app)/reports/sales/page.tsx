@@ -63,7 +63,7 @@ export default function SalesReportPage() {
             <div className="space-y-1">
               <Label className="text-xs">Unit</Label>
               <Select value={unit} onValueChange={(v) => v && setUnit(v)}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm"><SelectValue>{(val: string) => ({ all: 'All units', unit1: 'Unit 1 — Andheri', unit2: 'Unit 2 — Bhiwandi' }[val] ?? val)}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All units</SelectItem>
                   <SelectItem value="unit1">Unit 1 — Andheri</SelectItem>
@@ -74,7 +74,7 @@ export default function SalesReportPage() {
             <div className="space-y-1">
               <Label className="text-xs">Brand</Label>
               <Select value={brand} onValueChange={(v) => v && setBrand(v)}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm"><SelectValue>{(val: string) => ({ all: 'All brands', br1: 'Optimum Nutrition', br2: 'MuscleBlaze', br4: 'Avatar Nutrition' }[val] ?? val)}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All brands</SelectItem>
                   <SelectItem value="br1">Optimum Nutrition</SelectItem>
@@ -86,7 +86,7 @@ export default function SalesReportPage() {
             <div className="space-y-1">
               <Label className="text-xs">Payment Mode</Label>
               <Select value={mode} onValueChange={(v) => v && setMode(v)}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm"><SelectValue>{(val: string) => ({ all: 'All modes', upi: 'UPI', bank: 'Bank Transfer', cash: 'Cash', credit: 'Credit' }[val] ?? val)}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All modes</SelectItem>
                   <SelectItem value="upi">UPI</SelectItem>
@@ -124,7 +124,7 @@ export default function SalesReportPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="border-b border-border bg-muted/40">
                 <tr>
                   {['Date', 'Order #', 'Client', 'Variant', 'Qty', 'Unit Price', 'Taxable', 'GST %', 'GST Amt', 'Total'].map(h => (
@@ -158,8 +158,8 @@ export default function SalesReportPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">GST Breakdown</CardTitle>
         </CardHeader>
-        <CardContent>
-          <table className="w-full text-sm">
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead className="border-b border-border">
               <tr className="text-muted-foreground">
                 <th className="text-left pb-2">GST Rate</th>

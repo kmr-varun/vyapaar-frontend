@@ -12,6 +12,7 @@ import { formatDistanceToNow } from 'date-fns'
 
 const linkPaths: Record<string, string> = {
   order: '/orders',
+  enquiry: '/enquiries',
   grn: '/inventory/purchases',
   payment: '/payments',
   picklist: '/picking',
@@ -35,8 +36,11 @@ export default function NotificationsPage() {
       await markRead(n.id)
       setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
     }
-    const path = linkPaths[n.linkType]
-    if (path) router.push(path)
+    const basePath = linkPaths[n.linkType]
+    if (basePath) {
+      const path = n.linkId ? `${basePath}/${n.linkId}` : basePath
+      router.push(path)
+    }
   }
 
   async function handleMarkAllRead() {

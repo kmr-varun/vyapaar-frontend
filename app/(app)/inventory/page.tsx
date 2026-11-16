@@ -132,15 +132,15 @@ export default function StockViewPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-border overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead className="bg-muted/40">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">SKU Code</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Variant</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Product</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Brand</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground font-mono">Bin Code</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Location</th>
                 <th className="text-right px-4 py-3 font-medium text-muted-foreground">Sealed Cartons</th>
                 <th className="text-right px-4 py-3 font-medium text-muted-foreground">Loose Packs</th>
                 <th className="text-right px-4 py-3 font-medium text-muted-foreground">Reserved</th>
@@ -166,7 +166,10 @@ export default function StockViewPage() {
                     <td className="px-4 py-3">{s.variantLabel}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.productName}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.brandName}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{s.binCode}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-medium">{s.binName || s.binCode}</p>
+                      {s.binName && <p className="font-mono text-[10px] text-muted-foreground">{s.binCode}</p>}
+                    </td>
                     <td className="px-4 py-3 text-right">{s.sealedCartons}</td>
                     <td className="px-4 py-3 text-right">{s.loosePacks}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground">{s.reservedPacks}</td>

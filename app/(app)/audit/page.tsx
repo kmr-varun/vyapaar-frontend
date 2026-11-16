@@ -108,7 +108,7 @@ export default function AuditLogPage() {
             <p className="text-center text-muted-foreground py-12 text-sm">No audit records found.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead className="border-b border-border bg-muted/40">
                   <tr>
                     {['Timestamp', 'User', 'Role', 'Action', 'Entity', 'Entity ID', 'Change'].map(h => (

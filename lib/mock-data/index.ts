@@ -5,6 +5,7 @@ import type {
   Order, Estimate, EstimateLine, Payment, CreditApproval,
   PickList, CartonOpenRequest, RemainingDeclaration, Package, Delivery,
   WhatsAppMessage, Notification, AuditLog, AppSettings, StockLedger,
+  CatalogLink, Enquiry,
 } from '../types'
 
 // ==================== USERS ====================
@@ -88,23 +89,23 @@ export const mockFloors: Floor[] = [
 ]
 
 export const mockRacks: Rack[] = [
-  { id: 'r1', floorId: 'fl1', name: 'Rack 1', code: 'U1-F1-R01', active: true },
-  { id: 'r2', floorId: 'fl1', name: 'Rack 2', code: 'U1-F1-R02', active: true },
-  { id: 'r3', floorId: 'fl2', name: 'Rack 1', code: 'U1-F2-R01', active: true },
-  { id: 'r4', floorId: 'fl3', name: 'Rack 1', code: 'U2-F1-R01', active: true },
-  { id: 'r5', floorId: 'fl3', name: 'Rack 2', code: 'U2-F1-R02', active: true },
+  { id: 'r1', floorId: 'fl1', name: 'Row A', code: 'U1-F1-R01', active: true },
+  { id: 'r2', floorId: 'fl1', name: 'Row B', code: 'U1-F1-R02', active: true },
+  { id: 'r3', floorId: 'fl2', name: 'Row A', code: 'U1-F2-R01', active: true },
+  { id: 'r4', floorId: 'fl3', name: 'Row A', code: 'U2-F1-R01', active: true },
+  { id: 'r5', floorId: 'fl3', name: 'Row B', code: 'U2-F1-R02', active: true },
 ]
 
 export const mockBins: Bin[] = [
-  { id: 'b1', rackId: 'r1', name: 'Bin 1', code: 'U1-F1-R01-B01', active: true },
-  { id: 'b2', rackId: 'r1', name: 'Bin 2', code: 'U1-F1-R01-B02', active: true },
-  { id: 'b3', rackId: 'r1', name: 'Bin 3', code: 'U1-F1-R01-B03', active: true },
-  { id: 'b4', rackId: 'r2', name: 'Bin 1', code: 'U1-F1-R02-B01', active: true },
-  { id: 'b5', rackId: 'r2', name: 'Bin 2', code: 'U1-F1-R02-B02', active: true },
-  { id: 'b6', rackId: 'r3', name: 'Bin 1', code: 'U1-F2-R01-B01', active: true },
-  { id: 'b7', rackId: 'r3', name: 'Bin 2', code: 'U1-F2-R01-B02', active: true },
-  { id: 'b8', rackId: 'r4', name: 'Bin 1', code: 'U2-F1-R01-B01', active: true },
-  { id: 'b9', rackId: 'r5', name: 'Bin 1', code: 'U2-F1-R02-B01', active: true },
+  { id: 'b1', rackId: 'r1', name: 'Shelf 1', code: 'U1-F1-R01-B01', active: true },
+  { id: 'b2', rackId: 'r1', name: 'Shelf 2', code: 'U1-F1-R01-B02', active: true },
+  { id: 'b3', rackId: 'r1', name: 'Shelf 3', code: 'U1-F1-R01-B03', active: true },
+  { id: 'b4', rackId: 'r2', name: 'Shelf 1', code: 'U1-F1-R02-B01', active: true },
+  { id: 'b5', rackId: 'r2', name: 'Shelf 2', code: 'U1-F1-R02-B02', active: true },
+  { id: 'b6', rackId: 'r3', name: 'Shelf 1', code: 'U1-F2-R01-B01', active: true },
+  { id: 'b7', rackId: 'r3', name: 'Shelf 2', code: 'U1-F2-R01-B02', active: true },
+  { id: 'b8', rackId: 'r4', name: 'Shelf 1', code: 'U2-F1-R01-B01', active: true },
+  { id: 'b9', rackId: 'r5', name: 'Shelf 1', code: 'U2-F1-R02-B01', active: true },
 ]
 
 // ==================== INVENTORY ====================
@@ -367,6 +368,109 @@ export const mockAuditLogs: AuditLog[] = [
   { id: 'aud2', userId: 'u3', userName: 'Suresh Kumar', userRole: 'floor-manager', action: 'create', entity: 'GRN', entityId: 'grn1', ip: '10.0.0.6', createdAt: hoursAgo(165) },
   { id: 'aud3', userId: 'u1', userName: 'Jay Mehta', userRole: 'admin', action: 'create', entity: 'Estimate', entityId: 'est1', ip: '10.0.0.4', createdAt: hoursAgo(19) },
   { id: 'aud4', userId: 'u6', userName: 'Meena Patel', userRole: 'accountant', action: 'approve', entity: 'Payment', entityId: 'pay1', ip: '10.0.0.7', before: { status: 'submitted' }, after: { status: 'verified' }, createdAt: hoursAgo(50) },
+]
+
+// ==================== CATALOG LINKS ====================
+export const mockCatalogLinks: CatalogLink[] = [
+  {
+    id: 'cl-link1',
+    token: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
+    title: 'MuscleBlaze Whey Range - FitLife Store',
+    brandIds: ['br2'],
+    productIds: [],
+    expiresAt: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(),
+    createdBy: 'u2',
+    createdAt: hoursAgo(4),
+    viewCount: 3,
+    checkoutCount: 1,
+    active: true,
+  },
+  {
+    id: 'cl-link2',
+    token: 'b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5',
+    title: 'Full Catalog - ProSports Nutrition',
+    brandIds: ['br1', 'br2', 'br3'],
+    productIds: [],
+    expiresAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    createdBy: 'u2',
+    createdAt: hoursAgo(26),
+    viewCount: 7,
+    checkoutCount: 2,
+    active: false,
+  },
+]
+
+// ==================== ENQUIRIES ====================
+export const mockEnquiries: Enquiry[] = [
+  {
+    id: 'enq1',
+    number: 'ENQ-2611-00001',
+    catalogLinkId: 'cl-link1',
+    contactName: 'Abhishek Jain',
+    mobile: '9811234567',
+    email: 'abhishek@fitlife.in',
+    businessName: 'FitLife Store',
+    deliveryAddress: '12 Lajpat Nagar, Delhi 110024',
+    preferredDate: '2026-11-20',
+    notes: 'Need urgently',
+    lines: [
+      { variantId: 'v5', quantity: 12 },
+      { variantId: 'v6', quantity: 6 },
+    ],
+    status: 'new',
+    paymentType: undefined,
+    callLogs: [],
+    createdAt: hoursAgo(1),
+    updatedAt: hoursAgo(1),
+  },
+  {
+    id: 'enq2',
+    number: 'ENQ-2611-00002',
+    contactName: 'Rahul Mehta',
+    mobile: '9988776655',
+    businessName: 'Sweat Zone',
+    deliveryAddress: 'Shop 3, Powai, Mumbai 400076',
+    lines: [
+      { variantId: 'v2', quantity: 6 },
+      { variantId: 'v8', quantity: 12 },
+    ],
+    status: 'called',
+    paymentType: 'credit',
+    callLogs: [
+      {
+        note: 'Customer interested, wants to know if there\'s a discount on 2 cartons of v8',
+        outcome: 'reached',
+        at: hoursAgo(0.5),
+        by: 'u2',
+        byName: 'Raj Sharma',
+      },
+    ],
+    createdAt: hoursAgo(5),
+    updatedAt: hoursAgo(0.5),
+  },
+  {
+    id: 'enq3',
+    number: 'ENQ-2611-00003',
+    contactName: 'Priya Desai',
+    mobile: '9900112200',
+    businessName: 'Wellness Corner',
+    lines: [
+      { variantId: 'v1', quantity: 24 },
+    ],
+    status: 'confirmed',
+    paymentType: 'cash',
+    callLogs: [
+      {
+        note: 'Confirmed order for 24 packs, cash payment, delivery by 20 Nov',
+        outcome: 'confirmed',
+        at: hoursAgo(10),
+        by: 'u2',
+        byName: 'Raj Sharma',
+      },
+    ],
+    createdAt: hoursAgo(14),
+    updatedAt: hoursAgo(10),
+  },
 ]
 
 // ==================== SETTINGS ====================

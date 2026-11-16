@@ -302,7 +302,7 @@ export default function CashBankPage() {
 
       {/* Add Account/Transaction Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {dialogType === "account" ? "Add Account" : "Add Transaction"}
@@ -323,7 +323,7 @@ export default function CashBankPage() {
                 <Label>Account Type *</Label>
                 <Select value={newAccount.type} onValueChange={(val) => setNewAccount({ ...newAccount, type: val as "cash" | "bank" })}>
                   <SelectTrigger className="mt-2">
-                    <SelectValue />
+                    <SelectValue>{(val: string) => val === 'cash' ? 'Cash' : val === 'bank' ? 'Bank' : val}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">Cash</SelectItem>
@@ -376,7 +376,7 @@ export default function CashBankPage() {
                 <Label>Transaction Type *</Label>
                 <Select value={newTransaction.type} onValueChange={(val) => setNewTransaction({ ...newTransaction, type: val as "in" | "out" })}>
                   <SelectTrigger className="mt-2">
-                    <SelectValue />
+                    <SelectValue>{(val: string) => val === 'in' ? 'Money In' : val === 'out' ? 'Money Out' : val}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="in">Money In</SelectItem>

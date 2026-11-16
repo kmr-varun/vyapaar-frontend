@@ -1,16 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getTransfers, createTransfer, receiveTransfer, getLots } from '@/lib/services/inventory'
+import Link from 'next/link'
+import { getTransfers, receiveTransfer } from '@/lib/services/inventory'
 import { getAllBins } from '@/lib/services/warehouse'
 import { getVariants } from '@/lib/services/variants'
-import type { StockTransfer, Bin, Variant, Lot } from '@/lib/types'
+import type { StockTransfer, Bin, Variant } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -27,45 +24,16 @@ export default function TransfersPage() {
   const [transfers, setTransfers] = useState<StockTransfer[]>([])
   const [bins, setBins] = useState<Bin[]>([])
   const [variants, setVariants] = useState<Variant[]>([])
-  const [lots, setLots] = useState<Lot[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [dialog, setDialog] = useState(false)
-  const [form, setForm] = useState({ fromBinId: '', toBinId: '', variantId: '', lotId: '', qty: 1 })
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
   useEffect(() => {
-    Promise.all([getTransfers(), getAllBins(), getVariants(), getLots()]).then(([t, b, v, l]) => {
+    Promise.all([getTransfers(), getAllBins(), getVariants()]).then(([t, b, v]) => {
       setTransfers(t)
       setBins(b)
       setVariants(v)
-      setLots(l)
       setLoading(false)
     })
   }, [])
-
-  const filteredLots = lots.filter(l => !form.variantId || l.variantId === form.variantId)
-
-  async function handleCreate() {
-    if (!form.fromBinId || !form.toBinId || !form.variantId || !form.lotId) {
-      setError('Fill all fields.')
-      return
-    }
-    if (form.fromBinId === form.toBinId) { setError('From and to bins must be different.'); return }
-    setSaving(true)
-    setError('')
-    try {
-      const t = await createTransfer({ fromBinId: form.fromBinId, toBinId: form.toBinId, variantId: form.variantId, lotId: form.lotId, qty: form.qty, status: 'in-transit', createdBy: 'u3' })
-      setTransfers(prev => [t, ...prev])
-      setDialog(false)
-      setForm({ fromBinId: '', toBinId: '', variantId: '', lotId: '', qty: 1 })
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed.')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   async function handleReceive(id: string) {
     const t = await receiveTransfer(id)
@@ -81,14 +49,16 @@ export default function TransfersPage() {
           <h1 className="text-xl font-semibold">Stock Transfers</h1>
           <p className="text-sm text-muted-foreground">Move stock between bins, floors or units</p>
         </div>
-        <Button size="sm" onClick={() => setDialog(true)}>
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Transfer
-        </Button>
+        <Link href="/inventory/transfers/new">
+          <Button size="sm">
+            <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Transfer
+          </Button>
+        </Link>
       </div>
 
       <div className="px-6 py-4">
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-border overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead className="bg-muted/40">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">ID</th>
@@ -132,51 +102,6 @@ export default function TransfersPage() {
           </table>
         </div>
       </div>
-
-      <Dialog open={dialog} onOpenChange={setDialog}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader><DialogTitle>Add Stock Transfer</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Variant *</Label>
-              <Select value={form.variantId} onValueChange={v => setForm(p => ({ ...p, variantId: v ?? p.variantId, lotId: '' }))}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="Select variant" /></SelectTrigger>
-                <SelectContent>{variants.map(v => <SelectItem key={v.id} value={v.id}>{v.skuCode} — {v.flavour}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Lot / Batch *</Label>
-              <Select value={form.lotId} onValueChange={v => setForm(p => ({ ...p, lotId: v ?? p.lotId }))}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="Select lot" /></SelectTrigger>
-                <SelectContent>{filteredLots.map(l => <SelectItem key={l.id} value={l.id}>{l.batch} (exp {l.expiry})</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">From Bin *</Label>
-              <Select value={form.fromBinId} onValueChange={v => setForm(p => ({ ...p, fromBinId: v ?? p.fromBinId }))}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="Select source bin" /></SelectTrigger>
-                <SelectContent>{bins.filter(b => b.active).map(b => <SelectItem key={b.id} value={b.id}>{b.code}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">To Bin *</Label>
-              <Select value={form.toBinId} onValueChange={v => setForm(p => ({ ...p, toBinId: v ?? p.toBinId }))}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="Select destination bin" /></SelectTrigger>
-                <SelectContent>{bins.filter(b => b.active && b.id !== form.fromBinId).map(b => <SelectItem key={b.id} value={b.id}>{b.code}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Quantity (packs) *</Label>
-              <Input type="number" min={1} value={form.qty} onChange={e => setForm(p => ({ ...p, qty: parseInt(e.target.value) || 1 }))} />
-            </div>
-            {error && <p className="text-xs text-destructive">{error}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving}>{saving ? 'Saving…' : 'Create Transfer'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

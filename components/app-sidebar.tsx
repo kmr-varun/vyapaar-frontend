@@ -12,7 +12,7 @@ import {
   ClipboardList, Users, Settings, Bell, LogOut,
   ChevronDown, ChevronRight, Package2, Map,
   PackageCheck, Boxes, ArrowLeftRight, ClipboardCheck,
-  BookOpen, Shield,
+  BookOpen, Shield, X, Link2, Inbox,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { UserRole } from '@/lib/types'
@@ -26,7 +26,7 @@ interface NavItem {
   badge?: number
 }
 
-function NavLink({ item, depth = 0 }: { item: NavItem; depth?: number }) {
+function NavLink({ item, depth = 0, onClose }: { item: NavItem; depth?: number; onClose?: () => void }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { hasRole } = useAuth()
@@ -57,7 +57,7 @@ function NavLink({ item, depth = 0 }: { item: NavItem; depth?: number }) {
         {(open || anyChildActive) && (
           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
             {item.children!.map(child => (
-              <NavLink key={child.label} item={child} depth={depth + 1} />
+              <NavLink key={child.label} item={child} depth={depth + 1} onClose={onClose} />
             ))}
           </div>
         )}
@@ -68,6 +68,7 @@ function NavLink({ item, depth = 0 }: { item: NavItem; depth?: number }) {
   return (
     <Link
       href={item.href!}
+      onClick={onClose}
       className={cn(
         'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
         depth === 0 ? 'font-medium' : 'font-normal',
@@ -119,6 +120,18 @@ const navItems: NavItem[] = [
       { label: 'Transfers', href: '/inventory/transfers', icon: ArrowLeftRight, roles: ['admin', 'sub-admin', 'floor-manager'] },
       { label: 'Adjustments', href: '/inventory/adjustments', icon: ClipboardCheck, roles: ['admin', 'sub-admin', 'floor-manager'] },
     ],
+  },
+  {
+    label: 'Catalog Links',
+    href: '/catalog-links',
+    icon: Link2,
+    roles: ['admin', 'sub-admin'],
+  },
+  {
+    label: 'Enquiries',
+    href: '/enquiries',
+    icon: Inbox,
+    roles: ['admin', 'sub-admin'],
   },
   {
     label: 'Orders',
@@ -181,7 +194,7 @@ const navItems: NavItem[] = [
   },
 ]
 
-export function AppSidebar() {
+export function AppSidebar({ mobileOpen, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [unreadCount, setUnreadCount] = useState(0)
@@ -195,26 +208,40 @@ export function AppSidebar() {
 
   function handleLogout() {
     logout()
+    onMobileClose?.()
     router.push('/login')
   }
 
-  return (
-    <aside className="w-56 shrink-0 flex flex-col h-full border-r border-border bg-background">
+  const sidebarContent = (
+    <aside className={cn(
+      'fixed left-0 top-0 h-full z-50 w-64',
+      'md:relative md:z-auto md:w-56 md:translate-x-0',
+      'shrink-0 flex flex-col border-r border-border bg-background',
+      'transition-transform duration-200 ease-in-out',
+      mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+    )}>
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border">
         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
           <Package2 className="w-4 h-4 text-primary" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold truncate">Royal Nutrition</p>
           <p className="text-[10px] text-muted-foreground truncate capitalize">{user?.role.replace('-', ' ')}</p>
         </div>
+        <button
+          onClick={onMobileClose}
+          className="md:hidden p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+          aria-label="Close menu"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {navItems.map(item => (
-          <NavLink key={item.label} item={item} />
+          <NavLink key={item.label} item={item} onClose={onMobileClose} />
         ))}
       </nav>
 
@@ -222,6 +249,7 @@ export function AppSidebar() {
       <div className="px-3 py-3 border-t border-border space-y-0.5">
         <Link
           href="/notifications"
+          onClick={onMobileClose}
           className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <Bell className="w-4 h-4 shrink-0" />
@@ -243,5 +271,18 @@ export function AppSidebar() {
         </div>
       </div>
     </aside>
+  )
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+      {sidebarContent}
+    </>
   )
 }
