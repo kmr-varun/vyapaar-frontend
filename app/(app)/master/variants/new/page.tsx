@@ -11,20 +11,32 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Sparkles } from 'lucide-react'
 
 const PACK_UNITS: Variant['packUnit'][] = ['kg', 'lb', 'g', 'ml', 'L', 'servings']
 
-function autoSku() { return `SKU-${Date.now()}` }
+function initials(s: string): string {
+  return s.trim().split(/[\s\-\/]+/).map(w => w[0] ?? '').join('').toUpperCase()
+}
+
+function generateSku(productName: string, flavour: string): string {
+  const p = initials(productName)
+  const f = initials(flavour)
+  if (!p && !f) return ''
+  if (!f) return p
+  if (!p) return f
+  return `${p}-${f}`
+}
 
 export default function NewVariantPage() {
   const router = useRouter()
   const [brands, setBrands] = useState<Brand[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [brandFilter, setBrandFilter] = useState('')
+  const [skuManuallyEdited, setSkuManuallyEdited] = useState(false)
   const [form, setForm] = useState({
     productId: '', flavour: '', packSize: '', packUnit: 'kg' as Variant['packUnit'],
-    mrp: '', skuCode: autoSku(), unitsPerCarton: '',
+    mrp: '', skuCode: '', unitsPerCarton: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -32,6 +44,19 @@ export default function NewVariantPage() {
   useEffect(() => {
     Promise.all([getBrands(), getProducts()]).then(([b, p]) => { setBrands(b); setProducts(p) })
   }, [])
+
+  // Auto-generate SKU when product or flavour changes (unless user has manually edited it)
+  useEffect(() => {
+    if (skuManuallyEdited) return
+    const product = products.find(p => p.id === form.productId)
+    if (!product) return
+    const brand = brands.find(b => b.id === product.brandId)
+    const brandAbbr = brand ? initials(brand.name) : ''
+    const productAbbr = initials(product.name)
+    const flavourAbbr = form.flavour ? initials(form.flavour) : ''
+    const parts = [brandAbbr, productAbbr, flavourAbbr].filter(Boolean)
+    setForm(f => ({ ...f, skuCode: parts.join('-') }))
+  }, [form.productId, form.flavour, products, brands, skuManuallyEdited])
 
   const filteredProducts = brandFilter ? products.filter(p => p.brandId === brandFilter && p.active) : products.filter(p => p.active)
   const brandMap = Object.fromEntries(brands.map(b => [b.id, b.name]))
@@ -49,15 +74,19 @@ export default function NewVariantPage() {
     setError('')
     setSaving(true)
     try {
+      const product = products.find(p => p.id === form.productId)
+      const brand = brands.find(b => b.id === product?.brandId)
+      const fallbackSku = generateSku(product?.name ?? '', form.flavour)
       await createVariant({
         productId: form.productId,
         flavour: form.flavour.trim(),
         packSize,
         packUnit: form.packUnit,
         mrp,
-        skuCode: form.skuCode.trim() || autoSku(),
+        skuCode: form.skuCode.trim() || fallbackSku,
         unitsPerCarton: upc,
       })
+      void brand
       router.push('/master/variants')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create variant.')
@@ -135,9 +164,29 @@ export default function NewVariantPage() {
         </div>
 
         <div className="md:col-span-2 space-y-1.5">
-          <Label>SKU Code</Label>
-          <Input placeholder="Auto-generated if blank" value={form.skuCode} onChange={e => setForm(f => ({ ...f, skuCode: e.target.value }))} disabled={saving} />
-          <p className="text-xs text-muted-foreground">Leave blank to auto-generate.</p>
+          <div className="flex items-center justify-between">
+            <Label>SKU Code</Label>
+            {skuManuallyEdited && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                onClick={() => { setSkuManuallyEdited(false) }}
+              >
+                <Sparkles className="w-3 h-3" /> Reset to auto
+              </button>
+            )}
+          </div>
+          <Input
+            placeholder="Auto-generated from product and flavour"
+            value={form.skuCode}
+            onChange={e => { setSkuManuallyEdited(true); setForm(f => ({ ...f, skuCode: e.target.value })) }}
+            disabled={saving}
+          />
+          <p className="text-xs text-muted-foreground">
+            {skuManuallyEdited
+              ? 'Using your custom SKU code.'
+              : 'Auto-generated from brand · product · flavour initials. Edit to customise.'}
+          </p>
         </div>
 
         {error && <p className="md:col-span-2 text-sm text-destructive">{error}</p>}

@@ -452,7 +452,12 @@ export default function OrderDetailPage() {
 
           <div className="rounded-lg border border-border p-4 text-xs text-muted-foreground space-y-1">
             <p>SLA deadline: {format(new Date(order.slaDeadline), 'dd MMM yyyy, HH:mm')}</p>
-            {order.confirmedAt && <p>Confirmed: {format(new Date(order.confirmedAt), 'dd MMM yyyy, HH:mm')}</p>}
+            {order.confirmedAt && (
+              <p>
+                Confirmed: {format(new Date(order.confirmedAt), 'dd MMM yyyy, HH:mm')}
+                {order.confirmedByName && <span className="ml-1">by <span className="text-foreground font-medium">{order.confirmedByName}</span></span>}
+              </p>
+            )}
           </div>
         </div>
       </div>

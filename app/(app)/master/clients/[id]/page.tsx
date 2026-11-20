@@ -8,7 +8,7 @@ import { getOrders } from '@/lib/services/orders'
 import type { Client, Order } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ChevronRight, Share2 } from 'lucide-react'
+import { ChevronRight, Share2, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -76,6 +76,13 @@ export default function ClientDetailPage() {
         <span className="text-foreground font-medium">{client.businessName}</span>
       </nav>
 
+      {!client.active && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>This client is <strong>inactive</strong> and cannot place new orders. Reactivate via the toggle on the clients list.</span>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-3">
@@ -90,11 +97,17 @@ export default function ClientDetailPage() {
             <a href={`tel:${client.mobile}`} className="text-primary hover:underline">{client.mobile}</a>
           </p>
         </div>
-        <Link href={`/master/clients/${id}/send-link`}>
-          <Button size="sm" variant="outline" className="gap-1.5">
+        {client.active ? (
+          <Link href={`/master/clients/${id}/send-link`}>
+            <Button size="sm" variant="outline" className="gap-1.5">
+              <Share2 className="w-3.5 h-3.5" /> Send Catalog Link
+            </Button>
+          </Link>
+        ) : (
+          <Button size="sm" variant="outline" className="gap-1.5" disabled>
             <Share2 className="w-3.5 h-3.5" /> Send Catalog Link
           </Button>
-        </Link>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -105,9 +118,11 @@ export default function ClientDetailPage() {
             {orders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <p className="text-sm">No orders yet for this client.</p>
-                <Link href="/orders/new" className="mt-3">
-                  <Button size="sm" variant="outline">Create Order</Button>
-                </Link>
+                {client.active && (
+                  <Link href="/orders/new" className="mt-3">
+                    <Button size="sm" variant="outline">Create Order</Button>
+                  </Link>
+                )}
               </div>
             ) : (
               <table className="w-full text-sm min-w-[480px]">

@@ -346,6 +346,8 @@ export interface Order {
   callLogs: CallLog[]
   createdAt: string
   confirmedAt?: string
+  confirmedBy?: string
+  confirmedByName?: string
   slaDeadline: string
 }
 
@@ -388,6 +390,9 @@ export interface Estimate {
   totalGst: number
   createdBy: string
   createdAt: string
+  sentBy?: string
+  sentByName?: string
+  sentAt?: string
 }
 
 export interface EstimateLine {

@@ -134,6 +134,8 @@ export async function logCall(orderId: string, log: Omit<CallLog, 'id' | 'orderI
   if (log.outcome === 'confirmed') {
     order.status = 'confirmed'
     order.confirmedAt = nowISO()
+    order.confirmedBy = log.userId
+    order.confirmedByName = mockUsers.find(u => u.id === log.userId)?.name
     const actor = mockUsers.find(u => u.id === (log.userId ?? 'u1')) ?? mockUsers.find(u => u.id === 'u1')!
     void logAction({ userId: actor.id, userName: actor.name, userRole: actor.role, action: 'status-change', entity: 'Order', entityId: orderId, ip: '0.0.0.0', after: { status: 'confirmed' } })
   } else if (log.outcome === 'cancelled') {

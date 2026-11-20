@@ -40,16 +40,16 @@ export const mockProducts: Product[] = [
 
 // ==================== VARIANTS ====================
 export const mockVariants: Variant[] = [
-  { id: 'v1', productId: 'p1', flavour: 'Double Rich Chocolate', packSize: 2, packUnit: 'lb', mrp: 2799, skuCode: 'ON-GSW-DRC-2LB', unitsPerCarton: 12, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v2', productId: 'p1', flavour: 'Double Rich Chocolate', packSize: 5, packUnit: 'lb', mrp: 5999, skuCode: 'ON-GSW-DRC-5LB', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v3', productId: 'p1', flavour: 'Vanilla Ice Cream', packSize: 5, packUnit: 'lb', mrp: 5999, skuCode: 'ON-GSW-VIC-5LB', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v4', productId: 'p2', flavour: 'Chocolate Bliss', packSize: 1.6, packUnit: 'lb', mrp: 3299, skuCode: 'ON-GSI-CHB-1.6LB', unitsPerCarton: 12, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v5', productId: 'p3', flavour: 'Rich Chocolate', packSize: 1, packUnit: 'kg', mrp: 2699, skuCode: 'MB-BPW-RC-1KG', unitsPerCarton: 12, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v6', productId: 'p3', flavour: 'Cookies & Cream', packSize: 2, packUnit: 'kg', mrp: 4799, skuCode: 'MB-BPW-CC-2KG', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v7', productId: 'p4', flavour: 'Chocolate', packSize: 3, packUnit: 'kg', mrp: 1999, skuCode: 'MB-SGX-CHO-3KG', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v8', productId: 'p5', flavour: 'Chocolate', packSize: 5, packUnit: 'lb', mrp: 6499, skuCode: 'AV-ISO-CHO-5LB', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v9', productId: 'p5', flavour: 'Strawberry', packSize: 5, packUnit: 'lb', mrp: 6499, skuCode: 'AV-ISO-STR-5LB', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
-  { id: 'v10', productId: 'p6', flavour: 'Unflavoured', packSize: 90, packUnit: 'servings', mrp: 1299, skuCode: 'GNC-TFO-UNF-90S', unitsPerCarton: 24, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v1', productId: 'p1', flavour: 'Double Rich Chocolate', packSize: 2, packUnit: 'lb', mrp: 2799, skuCode: 'ON-GSW-DRC', unitsPerCarton: 12, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v2', productId: 'p1', flavour: 'Double Rich Chocolate', packSize: 5, packUnit: 'lb', mrp: 5999, skuCode: 'ON-GSW-DRC-5', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v3', productId: 'p1', flavour: 'Vanilla Ice Cream', packSize: 5, packUnit: 'lb', mrp: 5999, skuCode: 'ON-GSW-VIC', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v4', productId: 'p2', flavour: 'Chocolate Bliss', packSize: 1.6, packUnit: 'lb', mrp: 3299, skuCode: 'ON-GSI-CHB', unitsPerCarton: 12, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v5', productId: 'p3', flavour: 'Rich Chocolate', packSize: 1, packUnit: 'kg', mrp: 2699, skuCode: 'MB-BPW-RC', unitsPerCarton: 12, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v6', productId: 'p3', flavour: 'Cookies & Cream', packSize: 2, packUnit: 'kg', mrp: 4799, skuCode: 'MB-BPW-CC', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v7', productId: 'p4', flavour: 'Chocolate', packSize: 3, packUnit: 'kg', mrp: 1999, skuCode: 'MB-SGX-CHO', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v8', productId: 'p5', flavour: 'Chocolate', packSize: 5, packUnit: 'lb', mrp: 6499, skuCode: 'AV-ISO-CHO', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v9', productId: 'p5', flavour: 'Strawberry', packSize: 5, packUnit: 'lb', mrp: 6499, skuCode: 'AV-ISO-STR', unitsPerCarton: 6, active: true, createdAt: '2026-11-02T09:00:00Z' },
+  { id: 'v10', productId: 'p6', flavour: 'Unflavoured', packSize: 90, packUnit: 'servings', mrp: 1299, skuCode: 'GNC-TFO-UNF', unitsPerCarton: 24, active: true, createdAt: '2026-11-02T09:00:00Z' },
 ]
 
 // ==================== VENDORS ====================
@@ -74,6 +74,7 @@ export const mockClients: Client[] = [
   { id: 'cl3', businessName: 'ProSports Nutrition', contactName: 'Anjali Verma', mobile: '9833445566', gstin: '27AABCP5678B1Z3', billingAddress: '5 Andheri West, Mumbai 400053', creditLimit: 200000, creditDays: 45, active: true, createdAt: '2026-11-05T09:00:00Z', source: 'manual' },
   { id: 'cl4', businessName: 'Gym Zone', contactName: 'Vikram Reddy', mobile: '9966778899', billingAddress: '34 Jubilee Hills, Hyderabad 500033', creditLimit: 75000, creditDays: 30, active: true, createdAt: '2026-11-06T09:00:00Z', source: 'catalog' },
   { id: 'cl5', businessName: 'Wellness World', contactName: 'Pooja Desai', mobile: '9977889900', billingAddress: '15 C.G. Road, Ahmedabad 380009', creditLimit: 150000, creditDays: 30, active: true, createdAt: '2026-11-07T09:00:00Z', source: 'manual' },
+  { id: 'cl6', businessName: 'NutriStop (Closed)', contactName: 'Rajan Mehta', mobile: '9988001122', billingAddress: '22 Brigade Road, Bangalore 560025', creditLimit: 0, creditDays: 0, active: false, createdAt: '2026-09-01T09:00:00Z', source: 'manual' },
 ]
 
 // ==================== WAREHOUSE ====================

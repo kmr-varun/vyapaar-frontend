@@ -116,12 +116,14 @@ export default function ClientsPage() {
                         >
                           View
                         </Link>
-                        <Link
-                          href={`/master/clients/${c.id}/send-link`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary hover:underline"
-                        >
-                          <Share2 className="w-3 h-3" /> Send Link
-                        </Link>
+                        {c.active && (
+                          <Link
+                            href={`/master/clients/${c.id}/send-link`}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary hover:underline"
+                          >
+                            <Share2 className="w-3 h-3" /> Send Link
+                          </Link>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3">

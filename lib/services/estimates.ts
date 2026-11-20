@@ -1,4 +1,4 @@
-import { mockEstimates, mockOrders } from '../mock-data'
+import { mockEstimates, mockOrders, mockUsers } from '../mock-data'
 import type { Estimate, EstimateLine, EstimateStatus, PaymentMode } from '../types'
 import { delay, generateId, nowISO } from './_mock'
 
@@ -72,13 +72,19 @@ export async function updateEstimateLines(id: string, lines: Omit<EstimateLine, 
   return e
 }
 
-export async function sendEstimate(id: string): Promise<Estimate> {
+export async function sendEstimate(id: string, sentByUserId?: string): Promise<Estimate> {
   await delay(600)
   const idx = mockEstimates.findIndex(e => e.id === id)
   if (idx === -1) throw new Error('Estimate not found.')
   const e = mockEstimates[idx]
   if (e.status !== 'priced') throw new Error('Estimate must be fully priced before sending.')
   e.status = 'sent'
+  e.sentAt = nowISO()
+  if (sentByUserId) {
+    const sender = mockUsers.find(u => u.id === sentByUserId)
+    e.sentBy = sentByUserId
+    e.sentByName = sender?.name
+  }
   const order = mockOrders.find(o => o.id === e.orderId)
   if (order) order.status = 'estimate-sent'
   return e

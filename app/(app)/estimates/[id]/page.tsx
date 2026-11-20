@@ -34,7 +34,7 @@ const modeConfig: Record<string, { label: string; className: string }> = {
 
 export default function EstimateDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { can } = useAuth()
+  const { can, user } = useAuth()
   const router = useRouter()
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
@@ -80,7 +80,7 @@ export default function EstimateDetailPage() {
     if (!estimate) return
     setActionLoading('send')
     try {
-      await sendEstimate(estimate.id)
+      await sendEstimate(estimate.id, user?.id)
       await load()
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error')
@@ -155,6 +155,14 @@ export default function EstimateDetailPage() {
         <div><span className="text-muted-foreground">Valid Until:</span> <span className="font-medium">{format(new Date(estimate.validUntil), 'dd MMM yyyy')}</span></div>
         <div><span className="text-muted-foreground">Version:</span> <span className="font-medium">v{estimate.version}</span></div>
         <div><span className="text-muted-foreground">Created:</span> <span className="font-medium">{format(new Date(estimate.createdAt), 'dd MMM yyyy')}</span></div>
+        {estimate.sentAt && (
+          <div className="col-span-2">
+            <span className="text-muted-foreground">Sent by:</span>{' '}
+            <span className="font-medium">{estimate.sentByName ?? estimate.sentBy ?? 'Unknown'}</span>
+            <span className="text-muted-foreground"> · </span>
+            <span className="font-medium">{format(new Date(estimate.sentAt), 'dd MMM yyyy, HH:mm')}</span>
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border border-border overflow-x-auto">

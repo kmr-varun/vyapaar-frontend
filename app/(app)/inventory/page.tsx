@@ -22,6 +22,8 @@ export default function StockViewPage() {
   const [brands, setBrands] = useState<Brand[]>([])
   const [search, setSearch] = useState('')
   const [brandFilter, setBrandFilter] = useState('all')
+  const [expiryFilter, setExpiryFilter] = useState<'all' | 'expiring-6m'>('all')
+  const [sortKey, setSortKey] = useState<'default' | 'name' | 'qty'>('default')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -33,12 +35,18 @@ export default function StockViewPage() {
   }, [])
 
   const filtered = useMemo(() => {
-    return stock.filter(s => {
+    const now = new Date()
+    const sixMonthsOut = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000)
+    let result = stock.filter(s => {
       const matchSearch = !search || s.skuCode.toLowerCase().includes(search.toLowerCase()) || s.variantLabel.toLowerCase().includes(search.toLowerCase()) || s.productName.toLowerCase().includes(search.toLowerCase())
       const matchBrand = brandFilter === 'all' || s.brandName === brands.find(b => b.id === brandFilter)?.name
-      return matchSearch && matchBrand
+      const matchExpiry = expiryFilter === 'all' || (s.nearestExpiry != null && new Date(s.nearestExpiry) <= sixMonthsOut)
+      return matchSearch && matchBrand && matchExpiry
     })
-  }, [stock, search, brandFilter, brands])
+    if (sortKey === 'name') result = [...result].sort((a, b) => a.productName.localeCompare(b.productName) || a.variantLabel.localeCompare(b.variantLabel))
+    if (sortKey === 'qty') result = [...result].sort((a, b) => a.availablePacks - b.availablePacks)
+    return result
+  }, [stock, search, brandFilter, expiryFilter, sortKey, brands])
 
   const lowStockCount = stock.filter(s => s.availablePacks <= 12 && s.availablePacks > 0).length
   const outOfStockCount = stock.filter(s => s.availablePacks <= 0).length
@@ -126,6 +134,25 @@ export default function StockViewPage() {
             <SelectContent>
               <SelectItem value="all">All brands</SelectItem>
               {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={expiryFilter} onValueChange={(v) => v && setExpiryFilter(v as typeof expiryFilter)}>
+            <SelectTrigger className="w-44 h-8 text-sm">
+              <SelectValue>{(val: string) => val === 'expiring-6m' ? 'Expiring ≤ 6 months' : 'All expiry'}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All expiry</SelectItem>
+              <SelectItem value="expiring-6m">Expiring ≤ 6 months</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortKey} onValueChange={(v) => v && setSortKey(v as typeof sortKey)}>
+            <SelectTrigger className="w-36 h-8 text-sm">
+              <SelectValue>{(val: string) => ({ default: 'Default order', name: 'Sort: A–Z', qty: 'Sort: Qty ↑' }[val] ?? val)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default order</SelectItem>
+              <SelectItem value="name">Sort: A–Z</SelectItem>
+              <SelectItem value="qty">Sort: Qty ↑</SelectItem>
             </SelectContent>
           </Select>
           <span className="text-xs text-muted-foreground self-center">{filtered.length} entries</span>
