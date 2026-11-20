@@ -304,6 +304,8 @@ export interface StockDisplay {
   binName: string    // human-readable: "Rack A · Bin 2"
   rackName: string
   binId: string
+  unitId: string
+  unitName: string
   sealedCartons: number
   loosePacks: number
   reservedPacks: number
@@ -568,6 +570,7 @@ export interface AuditLog {
 // ==================== SETTINGS ====================
 export interface AppSettings {
   businessName: string
+  businessAddress?: string
   logoUrl?: string
   unitGstins: Record<string, string>
   orderPrefix: string

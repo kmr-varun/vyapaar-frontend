@@ -9,7 +9,8 @@ import { getEstimates, sendEstimate, reviseEstimate, refreshExpiredEstimate } fr
 import { getOrders } from '@/lib/services/orders'
 import { getVariants } from '@/lib/services/variants'
 import { getVendorPriceRules } from '@/lib/services/vendors'
-import type { Estimate, Order, Variant, VendorPriceRule } from '@/lib/types'
+import { getLots } from '@/lib/services/inventory'
+import type { Estimate, Order, Variant, VendorPriceRule, Lot } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, Copy, ExternalLink, RefreshCw, Send, FilePen, FileText as FilePdf, MessageCircle } from 'lucide-react'
 
@@ -39,6 +40,7 @@ export default function EstimateDetailPage() {
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
   const [variants, setVariants] = useState<Variant[]>([])
+  const [lots, setLots] = useState<Lot[]>([])
   const [priceRules, setPriceRules] = useState<VendorPriceRule[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -46,22 +48,29 @@ export default function EstimateDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [ests, ords, vars, rules] = await Promise.all([
+    const [ests, ords, vars, rules, lotsData] = await Promise.all([
       getEstimates(),
       getOrders(),
       getVariants(),
       getVendorPriceRules(),
+      getLots(),
     ])
     setEstimate(ests.find(e => e.id === id) ?? null)
     setOrders(ords)
     setVariants(vars)
     setPriceRules(rules)
+    setLots(lotsData)
     setLoading(false)
   }, [id])
 
   useEffect(() => { load() }, [load])
 
   function getVariant(variantId: string) { return variants.find(v => v.id === variantId) }
+  function getNearestExpiry(variantId: string) {
+    const variantLots = lots.filter(l => l.variantId === variantId)
+    if (variantLots.length === 0) return undefined
+    return variantLots.reduce((min, l) => l.expiry < min ? l.expiry : min, variantLots[0].expiry)
+  }
 
   function bestCostPrice(variantId: string): number | null {
     const active = priceRules.filter(r => r.variantId === variantId && r.active)
@@ -170,6 +179,8 @@ export default function EstimateDetailPage() {
           <thead className="bg-muted/40">
             <tr>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Item</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Flavour</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Expiry</th>
               <th className="text-right px-4 py-3 font-medium text-muted-foreground">Qty</th>
               <th className="text-right px-4 py-3 font-medium text-muted-foreground">Price/unit</th>
               <th className="text-right px-4 py-3 font-medium text-muted-foreground">Discount</th>
@@ -183,7 +194,7 @@ export default function EstimateDetailPage() {
               return (
                 <tr key={line.id} className="border-t border-border hover:bg-muted/20">
                   <td className="px-4 py-3">
-                    {v ? `${v.flavour} ${v.packSize}${v.packUnit}` : line.variantId}
+                    {v ? `${v.packSize}${v.packUnit}` : line.variantId}
                     {can('view-cost-prices') && (() => {
                       const cost = bestCostPrice(line.variantId)
                       const margin = line.pricePerPack ? marginPct(line.pricePerPack, cost) : null
@@ -191,6 +202,10 @@ export default function EstimateDetailPage() {
                         <div className="text-[10px] text-muted-foreground">Cost: {inr(cost)} · Margin: {margin ?? '—'}</div>
                       ) : null
                     })()}
+                  </td>
+                  <td className="px-4 py-3 text-sm">{v?.flavour ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {(() => { const exp = getNearestExpiry(line.variantId); return exp ? format(new Date(exp), 'MMM yyyy') : '—' })()}
                   </td>
                   <td className="px-4 py-3 text-right">{line.qtyPacks}</td>
                   <td className="px-4 py-3 text-right">{line.pricePerPack ? inr(line.pricePerPack) : '—'}</td>

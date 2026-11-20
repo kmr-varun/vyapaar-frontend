@@ -477,6 +477,7 @@ export const mockEnquiries: Enquiry[] = [
 // ==================== SETTINGS ====================
 export const mockSettings: AppSettings = {
   businessName: 'Royal Nutrition',
+  businessAddress: 'Plot 5, MIDC Andheri East, Mumbai 400093',
   orderPrefix: 'ORD',
   estimatePrefix: 'EST',
   invoicePrefix: 'INV',

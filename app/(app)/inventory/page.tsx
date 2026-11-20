@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { getStockDisplay } from '@/lib/services/inventory'
 import { getBrands } from '@/lib/services/brands'
-import type { StockDisplay, Brand } from '@/lib/types'
+import { getUnits } from '@/lib/services/warehouse'
+import type { StockDisplay, Brand, Unit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -20,16 +21,19 @@ function fmtDate(d: string) {
 export default function StockViewPage() {
   const [stock, setStock] = useState<StockDisplay[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
+  const [units, setUnits] = useState<Unit[]>([])
   const [search, setSearch] = useState('')
   const [brandFilter, setBrandFilter] = useState('all')
+  const [unitFilter, setUnitFilter] = useState('all')
   const [expiryFilter, setExpiryFilter] = useState<'all' | 'expiring-6m'>('all')
   const [sortKey, setSortKey] = useState<'default' | 'name' | 'qty'>('default')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([getStockDisplay(), getBrands()]).then(([s, b]) => {
+    Promise.all([getStockDisplay(), getBrands(), getUnits()]).then(([s, b, u]) => {
       setStock(s)
       setBrands(b)
+      setUnits(u)
       setLoading(false)
     })
   }, [])
@@ -40,13 +44,14 @@ export default function StockViewPage() {
     let result = stock.filter(s => {
       const matchSearch = !search || s.skuCode.toLowerCase().includes(search.toLowerCase()) || s.variantLabel.toLowerCase().includes(search.toLowerCase()) || s.productName.toLowerCase().includes(search.toLowerCase())
       const matchBrand = brandFilter === 'all' || s.brandName === brands.find(b => b.id === brandFilter)?.name
+      const matchUnit = unitFilter === 'all' || s.unitId === unitFilter
       const matchExpiry = expiryFilter === 'all' || (s.nearestExpiry != null && new Date(s.nearestExpiry) <= sixMonthsOut)
-      return matchSearch && matchBrand && matchExpiry
+      return matchSearch && matchBrand && matchUnit && matchExpiry
     })
     if (sortKey === 'name') result = [...result].sort((a, b) => a.productName.localeCompare(b.productName) || a.variantLabel.localeCompare(b.variantLabel))
     if (sortKey === 'qty') result = [...result].sort((a, b) => a.availablePacks - b.availablePacks)
     return result
-  }, [stock, search, brandFilter, expiryFilter, sortKey, brands])
+  }, [stock, search, brandFilter, unitFilter, expiryFilter, sortKey, brands])
 
   const lowStockCount = stock.filter(s => s.availablePacks <= 12 && s.availablePacks > 0).length
   const outOfStockCount = stock.filter(s => s.availablePacks <= 0).length
@@ -129,6 +134,15 @@ export default function StockViewPage() {
               className="pl-8 w-64 h-8 text-sm"
             />
           </div>
+          <Select value={unitFilter} onValueChange={(v) => v && setUnitFilter(v)}>
+            <SelectTrigger className="w-44 h-8 text-sm">
+              <SelectValue>{(val: string) => val === 'all' ? 'All units' : (units.find(u => u.id === val)?.name ?? val)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All units</SelectItem>
+              {units.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={brandFilter} onValueChange={(v) => v && setBrandFilter(v)}>
             <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="All brands" /></SelectTrigger>
             <SelectContent>
@@ -194,6 +208,7 @@ export default function StockViewPage() {
                     <td className="px-4 py-3 text-muted-foreground">{s.productName}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.brandName}</td>
                     <td className="px-4 py-3">
+                      {s.unitName && unitFilter === 'all' && <p className="text-[10px] text-muted-foreground">{s.unitName}</p>}
                       <p className="text-xs font-medium">{s.binName || s.binCode}</p>
                       {s.binName && <p className="font-mono text-[10px] text-muted-foreground">{s.binCode}</p>}
                     </td>

@@ -2,6 +2,7 @@ import {
   mockStockBalances, mockStockLedger, mockLots, mockOpenedCartons,
   mockPurchases, mockGRNs, mockTransfers, mockAdjustments,
   mockVariants, mockProducts, mockBrands, mockBins, mockRacks,
+  mockFloors, mockUnits,
 } from '../mock-data'
 import type {
   StockDisplay, StockBalance, Lot, OpenedCarton,
@@ -15,6 +16,13 @@ export async function getStockDisplay(filters?: { unitId?: string; floorId?: str
   return mockStockBalances
     .filter(sb => {
       if (filters?.variantId && sb.variantId !== filters.variantId) return false
+      if (filters?.unitId || filters?.floorId) {
+        const bin = mockBins.find(b => b.id === sb.binId)
+        const rack = bin ? mockRacks.find(r => r.id === bin.rackId) : undefined
+        const floor = rack ? mockFloors.find(f => f.id === rack.floorId) : undefined
+        if (filters.floorId && floor?.id !== filters.floorId) return false
+        if (filters.unitId && floor?.unitId !== filters.unitId) return false
+      }
       return true
     })
     .map(sb => {
@@ -23,6 +31,8 @@ export async function getStockDisplay(filters?: { unitId?: string; floorId?: str
       const brand = product ? mockBrands.find(b => b.id === product.brandId) : undefined
       const bin = mockBins.find(b => b.id === sb.binId)
       const rack = bin ? mockRacks.find(r => r.id === bin.rackId) : undefined
+      const floor = rack ? mockFloors.find(f => f.id === rack.floorId) : undefined
+      const unit = floor ? mockUnits.find(u => u.id === floor.unitId) : undefined
       const lot = mockLots.find(l => l.id === sb.lotId)
       const availablePacks = sb.sealedPacks + sb.loosePacks - sb.reservedPacks
       const unitsPerCarton = variant?.unitsPerCarton ?? 1
@@ -36,6 +46,8 @@ export async function getStockDisplay(filters?: { unitId?: string; floorId?: str
         binName: bin ? `${rack?.name ?? '—'} · ${bin.name}` : '',
         rackName: rack?.name ?? '',
         binId: sb.binId,
+        unitId: unit?.id ?? '',
+        unitName: unit?.name ?? '—',
         sealedCartons: Math.floor(sb.sealedPacks / unitsPerCarton),
         loosePacks: sb.loosePacks,
         reservedPacks: sb.reservedPacks,

@@ -8,8 +8,9 @@ import { getOrder } from '@/lib/services/orders'
 import { getClient } from '@/lib/services/clients'
 import { getVariant } from '@/lib/services/variants'
 import { getSettings } from '@/lib/services/settings'
+import { getLots } from '@/lib/services/inventory'
 import { submitPayment } from '@/lib/services/payments'
-import type { Estimate, Order, Client, Variant, AppSettings, PaymentMode } from '@/lib/types'
+import type { Estimate, Order, Client, Variant, AppSettings, PaymentMode, Lot } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -18,7 +19,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { Package2, Upload, MessageSquare, AlertTriangle } from 'lucide-react'
+import { Upload, MessageSquare, AlertTriangle } from 'lucide-react'
 
 function inr(n: number) {
   return '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 })
@@ -32,6 +33,7 @@ export default function PublicEstimatePageClient() {
   const [order, setOrder] = useState<Order | null>(null)
   const [client, setClient] = useState<Client | null>(null)
   const [variants, setVariants] = useState<Record<string, Variant>>({})
+  const [lots, setLots] = useState<Lot[]>([])
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -60,11 +62,14 @@ export default function PublicEstimatePageClient() {
         const cl = await getClient(ord.clientId)
         setClient(cl)
         setPayMode(est.paymentMode)
-        const varMap: Record<string, Variant> = {}
-        await Promise.all(est.lines.map(async l => {
-          const v = await getVariant(l.variantId)
-          varMap[l.variantId] = v
-        }))
+        const [lotsData, varMap] = await Promise.all([
+          getLots(),
+          Promise.all(est.lines.map(async l => {
+            const v = await getVariant(l.variantId)
+            return [l.variantId, v] as [string, Variant]
+          })).then(entries => Object.fromEntries(entries)),
+        ])
+        setLots(lotsData)
         setVariants(varMap)
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Could not load estimate.')
@@ -121,20 +126,17 @@ export default function PublicEstimatePageClient() {
   const expired = isPast(new Date(estimate.validUntil))
   const replaced = estimate.status === 'replaced'
   const subtotal = estimate.totalAmount - estimate.totalGst
+  const businessGstin = settings ? Object.values(settings.unitGstins)[0] : '27AABCR1234C1Z4'
+
+  function getNearestExpiry(variantId: string) {
+    const variantLots = lots.filter(l => l.variantId === variantId)
+    if (variantLots.length === 0) return undefined
+    return variantLots.reduce((min, l) => l.expiry < min ? l.expiry : min, variantLots[0].expiry)
+  }
 
   return (
-    <div className="min-h-screen bg-muted/30 py-8 px-4">
-      <div className="max-w-2xl mx-auto space-y-4">
-
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Package2 className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <p className="font-semibold">{settings?.businessName ?? 'Royal Nutrition'}</p>
-            <p className="text-xs text-muted-foreground">GSTIN: 27AABCR1234C1Z4 · Mumbai</p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-muted/30 py-8 px-4 print:bg-white print:py-4">
+      <div className="max-w-3xl mx-auto space-y-4">
 
         {replaced && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-400">
@@ -142,76 +144,102 @@ export default function PublicEstimatePageClient() {
           </div>
         )}
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-base">{estimate.number}</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Issued {format(new Date(estimate.createdAt), 'dd MMM yyyy')}</p>
-              </div>
-              <div className="text-right">
-                {expired ? (
-                  <span className="text-xs text-destructive font-medium">Expired</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    Valid for {formatDistanceToNow(new Date(estimate.validUntil))}
-                  </span>
-                )}
-                <p className="text-xs text-muted-foreground">Until {format(new Date(estimate.validUntil), 'dd MMM yyyy')}</p>
+        <Card className="overflow-hidden">
+          {/* Document header */}
+          <div className="text-center border-b border-border px-6 py-4 bg-muted/20">
+            <p className="text-sm text-muted-foreground font-medium tracking-wide">Shri</p>
+            <h1 className="text-lg font-bold mt-0.5">Estimate / Proforma Invoice</h1>
+            <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
+              <span className="font-mono font-semibold text-foreground">{estimate.number}</span>
+              <span>·</span>
+              <span>Issued {format(new Date(estimate.createdAt), 'dd MMM yyyy')}</span>
+              <span>·</span>
+              {expired ? (
+                <span className="text-destructive font-medium">Expired</span>
+              ) : (
+                <span>Valid until {format(new Date(estimate.validUntil), 'dd MMM yyyy')} ({formatDistanceToNow(new Date(estimate.validUntil))})</span>
+              )}
+            </div>
+          </div>
+
+          {/* To / From */}
+          <div className="grid grid-cols-2 gap-0 border-b border-border">
+            <div className="px-6 py-4 border-r border-border">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">To</p>
+              {client ? (
+                <div className="text-sm space-y-0.5">
+                  <p className="font-semibold">{client.businessName}</p>
+                  <p className="text-muted-foreground">{client.contactName}</p>
+                  <p className="text-muted-foreground">{client.mobile}</p>
+                  {client.billingAddress && <p className="text-muted-foreground text-xs">{client.billingAddress}</p>}
+                  {client.gstin && <p className="text-xs font-mono text-muted-foreground">GSTIN: {client.gstin}</p>}
+                </div>
+              ) : <p className="text-sm text-muted-foreground">—</p>}
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">From</p>
+              <div className="text-sm space-y-0.5">
+                <p className="font-semibold">{settings?.businessName ?? 'Royal Nutrition'}</p>
+                {settings?.businessAddress && <p className="text-muted-foreground text-xs">{settings.businessAddress}</p>}
+                <p className="text-xs font-mono text-muted-foreground">GSTIN: {businessGstin}</p>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {client && (
-              <div className="text-sm space-y-0.5">
-                <p className="font-medium">{client.businessName}</p>
-                <p className="text-muted-foreground">{client.contactName} · {client.mobile}</p>
-                <p className="text-muted-foreground text-xs">{client.billingAddress}</p>
-                {client.gstin && <p className="text-muted-foreground text-xs">GSTIN: {client.gstin}</p>}
-              </div>
-            )}
+          </div>
 
-            <Separator />
-
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Items</p>
-              <div className="space-y-2">
+          {/* Line items table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
+              <thead className="bg-muted/40 border-b border-border">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Product</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Flavour</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Expiry</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Qty</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Rate</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">MRP</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total</th>
+                </tr>
+              </thead>
+              <tbody>
                 {estimate.lines.map(line => {
                   const v = variants[line.variantId]
-                  const taxable = line.lineTotal - line.gstAmount
+                  const expiry = getNearestExpiry(line.variantId)
                   return (
-                    <div key={line.id} className="flex items-start justify-between gap-4 py-2 border-b border-border last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{v ? `${v.flavour} ${v.packSize}${v.packUnit}` : line.variantId}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {line.qtyPacks} packs × {inr(line.pricePerPack ?? 0)}
-                          {line.discount ? ` − ${inr(line.discount)} disc.` : ''}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Taxable: {inr(taxable)} · GST {line.gstRate}%: {inr(line.gstAmount)}
-                        </p>
-                      </div>
-                      <p className="text-sm font-semibold shrink-0">{inr(line.lineTotal)}</p>
-                    </div>
+                    <tr key={line.id} className="border-b border-border last:border-0 hover:bg-muted/10">
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{v ? `${v.packSize}${v.packUnit}` : line.variantId}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{v?.skuCode}</p>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{v?.flavour ?? '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {expiry ? format(new Date(expiry), 'MMM yyyy') : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right">{line.qtyPacks}</td>
+                      <td className="px-4 py-3 text-right">{line.pricePerPack ? inr(line.pricePerPack) : '—'}</td>
+                      <td className="px-4 py-3 text-right text-muted-foreground">{v?.mrp ? inr(v.mrp) : '—'}</td>
+                      <td className="px-4 py-3 text-right font-semibold">{inr(line.lineTotal)}</td>
+                    </tr>
                   )
                 })}
-              </div>
-            </div>
+              </tbody>
+            </table>
+          </div>
 
-            <Separator />
-
-            <div className="space-y-1 text-sm">
+          {/* Totals */}
+          <div className="border-t border-border px-6 py-4">
+            <div className="ml-auto max-w-xs space-y-1 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span><span>{inr(subtotal)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Total GST</span><span>{inr(estimate.totalGst)}</span>
               </div>
-              <div className="flex justify-between font-bold text-base pt-1">
+              <Separator className="my-2" />
+              <div className="flex justify-between font-bold text-base">
                 <span>Grand Total</span><span>{inr(estimate.totalAmount)}</span>
               </div>
             </div>
-          </CardContent>
+          </div>
         </Card>
 
         {!expired && !replaced && (
