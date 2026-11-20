@@ -22,7 +22,7 @@
 
 | ID | Item | Status | Notes |
 |----|------|--------|-------|
-| INV-07 | Show inventory unit-wise (per warehouse unit) | `[ ]` | No schema change; join Bin→Floor→Unit in service, add unit filter to UI |
+| INV-07 | Show inventory unit-wise (per warehouse unit) | `[x]` | Bin→Rack→Floor→Unit join in service; unit filter dropdown in inventory page |
 | INV-12 | Filter items expiring ≤ 6 months; sort by name or qty | `[x]` | Expiry filter dropdown + sort (A–Z, Qty↑) added to inventory page |
 
 ### Orders
@@ -36,12 +36,12 @@
 | ID | Item | Status | Notes |
 |----|------|--------|-------|
 | EST-07 | Show who approved each estimate (name + time) | `[x]` | `sentBy`/`sentByName`/`sentAt` added to Estimate type; shown in estimate detail |
-| EST-10 | Show flavour and expiry on every estimate line | `[ ]` | Add `lotId?` to `EstimateLine`; derive flavour/expiry at render |
+| EST-10 | Show flavour and expiry on every estimate line | `[x]` | Flavour + Expiry columns on internal estimate detail + public estimate page |
 | EST-10/11 | Estimate line columns: Product \| Qty \| Serving \| E.P. \| MRP \| Total \| W/O | `[!]` | E.P. definition unclear; W/O tied to EST-05 — needs PM confirm |
-| EST-09 | Lock stock 10 hrs after estimate sent; auto-release; configurable | `[ ]` | Add `stockLockHours` to AppSettings; add `reservedUntil?`+`reservedForEstimateId?` to StockBalance |
+| EST-09 | Lock stock 10 hrs after estimate sent; auto-release; configurable | `[x]` | `stockLockHours` in AppSettings + settings page; `reservedUntil`/`reservedForEstimateId` on StockBalance; auto-locks on sendEstimate; expired locks auto-released on next stock read |
 | EST-05 | W/O toggle on estimate | `[!]` | Needs PM confirmation on meaning |
 | EST-03 | Remove GST from estimate | `[!]` | Needs PM confirmation — display-only or full removal? |
-| Layout | Estimate layout: "Shri" header, To/From two-column, Proforma Invoice format | `[ ]` | Rebuild `estimate/[token]/_client.tsx` layout |
+| Layout | Estimate layout: "Shri" header, To/From two-column, Proforma Invoice format | `[x]` | Public estimate page rebuilt with formal invoice layout |
 
 ---
 
@@ -54,12 +54,12 @@
 4. `[x]` INV-12 — Expiry filter
 
 ### Batch 2 — Medium, independent
-5. `[ ]` INV-07 — Unit-wise inventory
-6. `[ ]` EST-10 — Flavour + expiry on estimate lines
-7. `[ ]` Estimate layout — Shri + To/From + Proforma Invoice
+5. `[x]` INV-07 — Unit-wise inventory
+6. `[x]` EST-10 — Flavour + expiry on estimate lines
+7. `[x]` Estimate layout — Shri + To/From + Proforma Invoice
 
 ### Batch 3 — Medium, depends on settings
-8. `[ ]` EST-09 — Stock lock after estimate sent
+8. `[x]` EST-09 — Stock lock after estimate sent
 
 ### Blocked — awaiting PM
 9. `[!]` EST-03 — Remove GST

@@ -490,5 +490,6 @@ export const mockSettings: AppSettings = {
   confirmationSlaHours: 24,
   expiryAlertWindowDays: 90,
   lowStockDefaultThreshold: 12,
+  stockLockHours: 10,
   unitGstins: { unit1: '27AABCR1234C1Z4', unit2: '27AABCR1234C1Z5' },
 }

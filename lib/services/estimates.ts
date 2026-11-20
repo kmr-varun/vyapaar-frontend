@@ -1,6 +1,7 @@
 import { mockEstimates, mockOrders, mockUsers } from '../mock-data'
 import type { Estimate, EstimateLine, EstimateStatus, PaymentMode } from '../types'
 import { delay, generateId, nowISO } from './_mock'
+import { reserveStockForEstimate } from './inventory'
 
 function estimateNumber(version: number): string {
   const d = new Date()
@@ -87,6 +88,7 @@ export async function sendEstimate(id: string, sentByUserId?: string): Promise<E
   }
   const order = mockOrders.find(o => o.id === e.orderId)
   if (order) order.status = 'estimate-sent'
+  void reserveStockForEstimate(e.id)
   return e
 }
 

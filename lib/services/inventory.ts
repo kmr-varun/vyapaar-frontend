@@ -2,7 +2,7 @@ import {
   mockStockBalances, mockStockLedger, mockLots, mockOpenedCartons,
   mockPurchases, mockGRNs, mockTransfers, mockAdjustments,
   mockVariants, mockProducts, mockBrands, mockBins, mockRacks,
-  mockFloors, mockUnits,
+  mockFloors, mockUnits, mockEstimates, mockSettings,
 } from '../mock-data'
 import type {
   StockDisplay, StockBalance, Lot, OpenedCarton,
@@ -163,4 +163,49 @@ export async function rejectAdjustment(id: string): Promise<StockAdjustment> {
   if (idx === -1) throw new Error('Adjustment not found.')
   mockAdjustments[idx].status = 'rejected'
   return mockAdjustments[idx]
+}
+
+export function releaseExpiredStockLocks(): void {
+  const now = new Date().toISOString()
+  for (const sb of mockStockBalances) {
+    if (sb.reservedUntil && sb.reservedUntil < now) {
+      sb.reservedPacks = 0
+      sb.reservedUntil = undefined
+      sb.reservedForEstimateId = undefined
+    }
+  }
+}
+
+export async function reserveStockForEstimate(estimateId: string): Promise<void> {
+  await delay(100)
+  releaseExpiredStockLocks()
+  const estimate = mockEstimates.find(e => e.id === estimateId)
+  if (!estimate) return
+  const lockHours = mockSettings.stockLockHours ?? 10
+  const reservedUntil = new Date(Date.now() + lockHours * 3600 * 1000).toISOString()
+  for (const line of estimate.lines) {
+    let remaining = line.qtyPacks
+    for (const sb of mockStockBalances) {
+      if (remaining <= 0) break
+      if (sb.variantId !== line.variantId) continue
+      const available = sb.sealedPacks + sb.loosePacks - sb.reservedPacks
+      if (available <= 0) continue
+      const toReserve = Math.min(remaining, available)
+      sb.reservedPacks += toReserve
+      sb.reservedUntil = reservedUntil
+      sb.reservedForEstimateId = estimateId
+      remaining -= toReserve
+    }
+  }
+}
+
+export async function releaseStockForEstimate(estimateId: string): Promise<void> {
+  await delay(100)
+  for (const sb of mockStockBalances) {
+    if (sb.reservedForEstimateId === estimateId) {
+      sb.reservedPacks = 0
+      sb.reservedUntil = undefined
+      sb.reservedForEstimateId = undefined
+    }
+  }
 }

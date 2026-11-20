@@ -189,6 +189,8 @@ export interface StockBalance {
   sealedPacks: number
   loosePacks: number
   reservedPacks: number
+  reservedUntil?: string
+  reservedForEstimateId?: string
 }
 
 export interface Lot {
@@ -585,6 +587,7 @@ export interface AppSettings {
   confirmationSlaHours: number
   expiryAlertWindowDays: number
   lowStockDefaultThreshold: number
+  stockLockHours: number
   whatsappSenderNumber?: string
 }
 

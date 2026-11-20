@@ -159,6 +159,7 @@ export default function SettingsPage() {
             { key: 'confirmationSlaHours', label: 'Confirmation SLA (hours)' },
             { key: 'expiryAlertWindowDays', label: 'Expiry Alert Window (days)' },
             { key: 'lowStockDefaultThreshold', label: 'Low Stock Threshold (packs)' },
+            { key: 'stockLockHours', label: 'Stock Lock Duration (hours after estimate sent)' },
           ].map(({ key, label }) => (
             <div key={key} className="space-y-1.5">
               <Label className="text-xs">{label}</Label>
@@ -175,6 +176,7 @@ export default function SettingsPage() {
             confirmationSlaHours: settings.confirmationSlaHours,
             expiryAlertWindowDays: settings.expiryAlertWindowDays,
             lowStockDefaultThreshold: settings.lowStockDefaultThreshold,
+            stockLockHours: settings.stockLockHours,
           })}>Save</Button>
         </CardContent>
       </Card>
